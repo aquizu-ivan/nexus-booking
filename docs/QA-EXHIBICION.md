@@ -41,7 +41,13 @@ Checklist TICKET-00:
 - URL publica: `https://nexus-booking-nexus-booking.up.railway.app/health`.
 - Verificacion: `curl https://nexus-booking-nexus-booking.up.railway.app/health`.
 - Observable en prod: servicio responde 200 con `env=production`, uptime y timestamp.
-- Boot seguro: `prisma generate` + `prisma db push` sin migraciones.
-- FASE 2B (migraciones) todavia no.
+- Boot seguro: `prisma generate` + `prisma migrate deploy`.
+
+## FASE 2B - Migraciones canonicas
+- Cambio vs FASE 2A: `db push` queda solo para DEV; prod usa `migrate deploy`.
+- Comando oficial prod: `pnpm -C apps/api run db:migrate:deploy`.
+- Estado de migraciones: `pnpm -C apps/api run db:migrate:status`.
+- Evidencia viva: `https://nexus-booking-nexus-booking.up.railway.app/health`.
+- Sin secretos en docs o repo.
 
 Regla: cada ticket debe dejar evidencia reproducible.
