@@ -14,3 +14,8 @@ Orden de arranque prod (sin secretos):
 1) prisma generate
 2) prisma migrate deploy
 3) start
+
+GitHub Pages (web):
+- Build: `pnpm -C apps/web run build -- --base=/nexus-booking/`
+- Publicacion manual: subir `apps/web/dist` a la rama `gh-pages`.
+- VITE_API_BASE_URL: setear en el entorno de build (Pages) con la URL de Railway.

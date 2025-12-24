@@ -66,4 +66,10 @@ Checklist TICKET-00:
 - Se valida: reglas basicas de dominio, conflicto por solapamiento/slot, shape de error.
 - No se valida aun: cambios de estado, admin, reglas avanzadas.
 
+## Web minima - TICKET-09
+- DEV: `pnpm -C apps/web run dev`.
+- Verificacion: Home carga, muestra API_BASE, Services lista servicios, Booking crea reserva.
+- Requiere API local en `http://localhost:4000`.
+- PROD: VITE_API_BASE_URL apunta a Railway en el build de Pages.
+
 Regla: cada ticket debe dejar evidencia reproducible.
