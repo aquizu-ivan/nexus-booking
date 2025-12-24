@@ -1,16 +1,9 @@
 ﻿const express = require("express");
+const { AppError, buildErrorPayload, getErrorEntry } = require("./errors");
 
 const app = express();
 
 app.use(express.json());
-
-function buildError(code, message, details) {
-  const error = { code, message, timestamp: new Date().toISOString() };
-  if (details !== undefined) {
-    error.details = details;
-  }
-  return { ok: false, error };
-}
 
 app.get("/health", (req, res) => {
   res.status(200).json({
@@ -23,7 +16,7 @@ app.get("/health", (req, res) => {
 });
 
 app.post("/bookings", (req, res, next) => {
-  const { user_id, service_id, start_at } = req.body || {};
+  const { user_id, service_id, start_at, test_case } = req.body || {};
 
   const startDate = start_at ? new Date(start_at) : null;
   const isValidUser = Number.isInteger(user_id) && user_id > 0;
@@ -31,31 +24,40 @@ app.post("/bookings", (req, res, next) => {
   const isValidStart = startDate instanceof Date && !Number.isNaN(startDate.getTime());
 
   if (!isValidUser || !isValidService || !isValidStart) {
-    const err = new Error("Invalid booking payload");
-    err.status = 400;
-    err.code = "BAD_REQUEST";
-    err.details = {
-      user_id: isValidUser,
-      service_id: isValidService,
-      start_at: isValidStart,
-    };
-    return next(err);
+    return next(
+      new AppError("VALIDATION_ERROR", {
+        user_id: isValidUser,
+        service_id: isValidService,
+        start_at: isValidStart,
+      })
+    );
+  }
+
+  if (test_case === "conflict") {
+    return next(new AppError("CONFLICT", { reason: "Simulated conflict" }));
+  }
+
+  if (test_case === "internal") {
+    throw new Error("Simulated unexpected error");
   }
 
   return res.status(201).json({ ok: true });
 });
 
 app.use((req, res) => {
-  res.status(404).json(buildError("NOT_FOUND", "Not Found"));
+  const entry = getErrorEntry("NOT_FOUND");
+  res.status(entry.httpStatus).json(buildErrorPayload(entry.code));
 });
 
 app.use((err, req, res, next) => {
-  const status = Number.isInteger(err.status) ? err.status : 500;
-  const code = err.code || (status === 400 ? "BAD_REQUEST" : "INTERNAL_ERROR");
-  const message = err.message || "Unexpected error";
-  const details = err.details;
+  if (err instanceof AppError) {
+    const entry = getErrorEntry(err.code);
+    res.status(entry.httpStatus).json(buildErrorPayload(entry.code, err.details));
+    return;
+  }
 
-  res.status(status).json(buildError(code, message, details));
+  const entry = getErrorEntry("INTERNAL_ERROR");
+  res.status(entry.httpStatus).json(buildErrorPayload(entry.code));
 });
 
 module.exports = app;

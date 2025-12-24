@@ -5,7 +5,8 @@
     "start": "node src/server.js",
     "dev": "node src/server.js",
     "health:smoke": "node scripts/health-smoke.cjs",
-    "api:smoke": "node scripts/api-smoke.cjs"
+    "api:smoke": "node scripts/api-smoke.cjs",
+    "error:smoke": "node scripts/error-smoke.cjs"
   },
   "prisma": {
     "seed": "node prisma/seed.cjs"
