@@ -9,6 +9,9 @@
   "scripts": {
     "lint": "echo lint placeholder",
     "tooling:smoke": "node scripts/tooling-smoke.cjs",
-    "build": "echo build placeholder"
+    "build": "echo build placeholder",
+    "db:push": "pnpm -C apps/api exec -- prisma db push",
+    "db:seed": "pnpm -C apps/api exec -- prisma db seed",
+    "db:smoke": "pnpm -C apps/api exec -- prisma db push && pnpm -C apps/api exec -- prisma db seed"
   }
 }
