@@ -13,4 +13,10 @@ Checklist TICKET-00:
 - Resultado esperado: schema aplicado con `db push` y seed minimo cargado.
 - Sin migraciones: solo `db push`, sin historial.
 
+## Backend observable — TICKET-03
+- Verificacion rapida: `pnpm -C apps/api run api:smoke`.
+- Alternativa manual: `pnpm -C apps/api run start` y luego `pnpm -C apps/api run health:smoke`.
+- Observable en esta fase: proceso vivo, `/health` responde, error shape unico, uptime y timestamp.
+- No se valida aun: DB, reglas de negocio, concurrencia, auth completa.
+
 Regla: cada ticket debe dejar evidencia reproducible.
