@@ -1,0 +1,14 @@
+﻿{
+  "name": "nexus-booking",
+  "private": true,
+  "packageManager": "pnpm@<VERSION>",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "lint": "echo lint placeholder",
+    "tooling:smoke": "node scripts/tooling-smoke.cjs",
+    "build": "echo build placeholder"
+  }
+}
