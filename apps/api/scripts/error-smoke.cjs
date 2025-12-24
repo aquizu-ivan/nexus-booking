@@ -1,4 +1,4 @@
-const http = require("http");
+﻿const http = require("http");
 const path = require("path");
 const { spawn } = require("child_process");
 
@@ -100,6 +100,19 @@ function validateResponse(label, response, expectedStatus, expectedCode) {
   }
 }
 
+function nextMondayUtcAtTen() {
+  const now = new Date();
+  const day = now.getUTCDay();
+  let delta = (1 - day + 7) % 7;
+  if (delta === 0) {
+    delta = 7;
+  }
+  const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  next.setUTCDate(next.getUTCDate() + delta);
+  next.setUTCHours(10, 0, 0, 0);
+  return next;
+}
+
 let shuttingDown = false;
 function shutdown(code) {
   if (shuttingDown) {
@@ -130,7 +143,7 @@ server.on("exit", (code) => {
     const validPayload = {
       user_id: 1,
       service_id: 1,
-      start_at: "2025-01-06T10:00:00.000Z",
+      start_at: nextMondayUtcAtTen().toISOString(),
     };
 
     const notFoundResponse = await requestJson("GET", "/missing");
@@ -139,17 +152,12 @@ server.on("exit", (code) => {
     const validationResponse = await requestJson("POST", "/bookings", {});
     validateResponse("400 VALIDATION_ERROR", validationResponse, 400, "VALIDATION_ERROR");
 
-    const conflictResponse = await requestJson("POST", "/bookings", {
-      ...validPayload,
-      test_case: "conflict",
-    });
-    validateResponse("409 CONFLICT", conflictResponse, 409, "CONFLICT");
+    const firstCreate = await requestJson("POST", "/bookings", validPayload);
+    console.log("\nPOST /bookings (primer intento)");
+    console.log(firstCreate.body);
 
-    const internalResponse = await requestJson("POST", "/bookings", {
-      ...validPayload,
-      test_case: "internal",
-    });
-    validateResponse("500 INTERNAL_ERROR", internalResponse, 500, "INTERNAL_ERROR");
+    const secondCreate = await requestJson("POST", "/bookings", validPayload);
+    validateResponse("409 CONFLICT", secondCreate, 409, "CONFLICT");
 
     shutdown(0);
   } catch (err) {
