@@ -1,0 +1,13 @@
+{
+  "name": "nexus-booking-api",
+  "private": true,
+  "prisma": {
+    "seed": "node prisma/seed.cjs"
+  },
+  "devDependencies": {
+    "prisma": "^7.2.0"
+  },
+  "dependencies": {
+    "@prisma/client": "^7.2.0"
+  }
+}
