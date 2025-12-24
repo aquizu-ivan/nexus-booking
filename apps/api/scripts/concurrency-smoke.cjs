@@ -1,4 +1,4 @@
-const http = require("http");
+﻿const http = require("http");
 const path = require("path");
 const { spawn } = require("child_process");
 
@@ -82,6 +82,19 @@ async function waitForHealth(triesLeft) {
   });
 }
 
+function nextMondayUtcAtTen() {
+  const now = new Date();
+  const day = now.getUTCDay();
+  let delta = (1 - day + 7) % 7;
+  if (delta === 0) {
+    delta = 7;
+  }
+  const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  next.setUTCDate(next.getUTCDate() + delta);
+  next.setUTCHours(10, 0, 0, 0);
+  return next;
+}
+
 let shuttingDown = false;
 function shutdown(code) {
   if (shuttingDown) {
@@ -109,11 +122,10 @@ server.on("exit", (code) => {
   try {
     await waitForHealth(6);
 
-    const startAt = new Date().toISOString();
     const payload = {
       user_id: 1,
       service_id: 1,
-      start_at: startAt,
+      start_at: nextMondayUtcAtTen().toISOString(),
     };
 
     const results = await Promise.all(

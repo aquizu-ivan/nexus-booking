@@ -21,14 +21,15 @@ Checklist TICKET-00:
 
 ## Contrato de errores - TICKET-04
 - Verificacion: `pnpm -C apps/api run error:smoke`.
+- Requiere seed local: `pnpm run db:smoke`.
 - Tabla de errores:
 
 | error code        | http | causa                          | ejemplo                       |
 |-------------------|------|--------------------------------|-------------------------------|
 | VALIDATION_ERROR  | 400  | payload invalido               | POST /bookings {}             |
 | NOT_FOUND         | 404  | recurso inexistente            | GET /missing                  |
-| CONFLICT          | 409  | conflicto de dominio simulado  | POST /bookings test_case=conflict |
-| INTERNAL_ERROR    | 500  | excepcion no controlada        | POST /bookings test_case=internal |
+| CONFLICT          | 409  | conflicto de dominio           | POST /bookings (slot duplicado) |
+| INTERNAL_ERROR    | 500  | excepcion no controlada        | error inesperado              |
 
 ## Concurrencia - TICKET-05
 - Estrategia: constraint unico + manejo de error (colision -> CONFLICT).
@@ -49,5 +50,20 @@ Checklist TICKET-00:
 - Estado de migraciones: `pnpm -C apps/api run db:migrate:status`.
 - Evidencia viva: `https://nexus-booking-nexus-booking.up.railway.app/health`.
 - Sin secretos en docs o repo.
+
+## Dominio real - TICKET-08
+- Requiere seed local: `pnpm run db:smoke`.
+- Arranque local: `pnpm -C apps/api run start`.
+- Verificacion manual (local):
+  - Listar servicios:
+    - `curl http://localhost:4000/services`
+  - Crear servicio:
+    - `curl -X POST http://localhost:4000/services -H "Content-Type: application/json" -d "{\"name\":\"Servicio X\",\"description\":\"Descripcion\",\"duration_minutes\":60,\"active\":true}"`
+  - Consultar disponibilidad (fecha lunes):
+    - `curl "http://localhost:4000/availability?serviceId=1&date=2025-12-29"`
+  - Crear reserva valida:
+    - `curl -X POST http://localhost:4000/bookings -H "Content-Type: application/json" -d "{\"user_id\":1,\"service_id\":1,\"start_at\":\"2025-12-29T10:00:00.000Z\"}"`
+- Se valida: reglas basicas de dominio, conflicto por solapamiento/slot, shape de error.
+- No se valida aun: cambios de estado, admin, reglas avanzadas.
 
 Regla: cada ticket debe dejar evidencia reproducible.
