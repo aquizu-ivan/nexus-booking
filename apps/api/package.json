@@ -2,6 +2,8 @@
   "name": "nexus-booking-api",
   "private": true,
   "scripts": {
+    "deploy:prepare": "pnpm -C apps/api exec -- prisma generate && pnpm -C apps/api exec -- prisma db push",
+    "prestart": "pnpm -C apps/api run deploy:prepare",
     "start": "node src/server.js",
     "dev": "node src/server.js",
     "health:smoke": "node scripts/health-smoke.cjs",

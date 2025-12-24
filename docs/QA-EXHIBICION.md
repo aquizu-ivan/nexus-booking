@@ -37,4 +37,11 @@ Checklist TICKET-00:
 - Verificacion: `pnpm -C apps/api run concurrency:smoke`.
 - Resultado esperado: 1x201 + N x 409.
 
+## Deploy observable real - TICKET-06
+- URL publica: `https://nexus-booking-nexus-booking.up.railway.app/health`.
+- Verificacion: `curl https://nexus-booking-nexus-booking.up.railway.app/health`.
+- Observable en prod: servicio responde 200 con `env=production`, uptime y timestamp.
+- Boot seguro: `prisma generate` + `prisma db push` sin migraciones.
+- FASE 2B (migraciones) todavia no.
+
 Regla: cada ticket debe dejar evidencia reproducible.
