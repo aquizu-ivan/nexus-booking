@@ -30,4 +30,11 @@ Checklist TICKET-00:
 | CONFLICT          | 409  | conflicto de dominio simulado  | POST /bookings test_case=conflict |
 | INTERNAL_ERROR    | 500  | excepcion no controlada        | POST /bookings test_case=internal |
 
+## Concurrencia - TICKET-05
+- Estrategia: constraint unico + manejo de error (colision -> CONFLICT).
+- Que se demuestra: 1 reserva creada, el resto colisiona sin romper el proceso.
+- Requiere DB local con seed: `pnpm run db:smoke`.
+- Verificacion: `pnpm -C apps/api run concurrency:smoke`.
+- Resultado esperado: 1x201 + N x 409.
+
 Regla: cada ticket debe dejar evidencia reproducible.

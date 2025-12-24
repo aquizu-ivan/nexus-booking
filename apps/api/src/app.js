@@ -1,7 +1,9 @@
 ﻿const express = require("express");
+const { PrismaClient } = require("@prisma/client");
 const { AppError, buildErrorPayload, getErrorEntry } = require("./errors");
 
 const app = express();
+const prisma = new PrismaClient();
 
 app.use(express.json());
 
@@ -15,7 +17,7 @@ app.get("/health", (req, res) => {
   });
 });
 
-app.post("/bookings", (req, res, next) => {
+app.post("/bookings", async (req, res, next) => {
   const { user_id, service_id, start_at, test_case } = req.body || {};
 
   const startDate = start_at ? new Date(start_at) : null;
@@ -39,6 +41,26 @@ app.post("/bookings", (req, res, next) => {
 
   if (test_case === "internal") {
     throw new Error("Simulated unexpected error");
+  }
+
+  try {
+    await prisma.bookings.create({
+      data: {
+        user_id,
+        service_id,
+        start_at: startDate,
+        status: "pending",
+        created_at: new Date(),
+      },
+    });
+  } catch (err) {
+    if (err && err.code === "P2002") {
+      return next(new AppError("CONFLICT", { target: err.meta && err.meta.target }));
+    }
+    if (err && err.code === "P2003") {
+      return next(new AppError("NOT_FOUND", { target: err.meta && err.meta.field_name }));
+    }
+    return next(err);
   }
 
   return res.status(201).json({ ok: true });
