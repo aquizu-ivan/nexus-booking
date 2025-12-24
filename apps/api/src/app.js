@@ -8,10 +8,11 @@ const prisma = new PrismaClient();
 app.use(express.json());
 
 app.get("/health", (req, res) => {
+  const runtimeEnv = process.env.NODE_ENV || (process.env.PORT ? "production" : "development");
   res.status(200).json({
     ok: true,
     service: "nexus-booking-api",
-    env: process.env.NODE_ENV || "development",
+    env: runtimeEnv,
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
   });
