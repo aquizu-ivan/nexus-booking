@@ -19,6 +19,10 @@ GitHub Pages (web):
 - Build: `pnpm -C apps/web run build -- --base=/nexus-booking/`
 - Publicacion manual: subir `apps/web/dist` a la rama `gh-pages`.
 - VITE_API_BASE_URL: setear en el entorno de build (Pages) con la URL de Railway.
+ - Source: GitHub Actions (workflow `Deploy Pages`).
+ - URL esperada: `https://aquizu-ivan.github.io/nexus-booking/`.
+ - Configuracion GitHub: Settings -> Pages -> Source: GitHub Actions.
+ - Variable requerida: `VITE_API_BASE_URL` en Settings -> Secrets and variables -> Actions -> Variables (o Environment `github-pages`).
 
 Variables de entorno (prod):
 - ADMIN_ACCESS_TOKEN (API, requerido para /admin)
