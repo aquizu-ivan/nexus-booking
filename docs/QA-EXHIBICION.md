@@ -88,4 +88,9 @@ Checklist TICKET-00:
 - Cancelar reserva: boton cancelar -> status actualizado.
 - Estados a validar: 401/403, 400, 409, 500, success.
 
+## Hotfix BOM - TICKET-12
+- Verificar BOM: `Get-Content -Encoding Byte -TotalCount 3 package.json`.
+- Resultado esperado: no debe ser `239 187 191` (UTF-8 BOM).
+- Prisma sin BOM / JSON sin BOM: mantener archivos criticos sin BOM.
+
 Regla: cada ticket debe dejar evidencia reproducible.

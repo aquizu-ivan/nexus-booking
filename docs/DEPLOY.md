@@ -22,3 +22,9 @@ GitHub Pages (web):
 
 Variables de entorno (prod):
 - ADMIN_ACCESS_TOKEN (API, requerido para /admin)
+
+Nota BOM (Windows):
+- package.json y JSON criticos deben estar en UTF-8 sin BOM.
+- Verificar BOM: `Get-Content -Encoding Byte -TotalCount 3 package.json`.
+- Remover BOM (PowerShell):
+  `$path = "package.json"; $content = Get-Content -Raw $path; [System.IO.File]::WriteAllText($path, $content, (New-Object System.Text.UTF8Encoding($false)))`

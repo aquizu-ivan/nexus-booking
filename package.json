@@ -1,7 +1,6 @@
-﻿{
+{
   "name": "nexus-booking",
   "private": true,
-  "packageManager": "pnpm@<VERSION>",
   "workspaces": [
     "apps/*",
     "packages/*"
