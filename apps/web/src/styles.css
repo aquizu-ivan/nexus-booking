@@ -158,6 +158,17 @@ main {
   font-size: 0.95rem;
 }
 
+.token-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.token-state {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
 .status.error {
   background: rgba(180, 35, 24, 0.08);
 }

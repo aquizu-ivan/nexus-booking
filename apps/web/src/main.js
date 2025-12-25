@@ -366,6 +366,10 @@ function renderAdmin() {
         Admin token
         <input id="admin-token" type="password" placeholder="X-ADMIN-TOKEN" />
       </label>
+      <div class="token-row">
+        <span id="token-state" class="token-state">Sin token</span>
+        <button id="token-clear" type="button">Limpiar token</button>
+      </div>
     </section>
 
     <section class="panel">
@@ -439,6 +443,8 @@ function renderAdmin() {
   `);
 
   const tokenInput = document.getElementById("admin-token");
+  const tokenState = document.getElementById("token-state");
+  const tokenClear = document.getElementById("token-clear");
   const serviceForm = document.getElementById("admin-service-form");
   const serviceState = document.getElementById("admin-service-state");
   const availabilityForm = document.getElementById("admin-availability-form");
@@ -447,9 +453,22 @@ function renderAdmin() {
   const bookingsState = document.getElementById("admin-bookings-state");
   const bookingsList = document.getElementById("admin-bookings-list");
 
+  function updateTokenState() {
+    tokenState.textContent = adminToken ? `Token cargado ${maskToken(adminToken)}` : "Sin token";
+  }
+
   tokenInput.addEventListener("input", () => {
     adminToken = tokenInput.value.trim();
+    updateTokenState();
   });
+
+  tokenClear.addEventListener("click", () => {
+    adminToken = "";
+    tokenInput.value = "";
+    updateTokenState();
+  });
+
+  updateTokenState();
 
   serviceForm.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -588,6 +607,10 @@ async function apiRequest(action, path, options = {}) {
 }
 
 async function adminRequest(action, path, payload, options = {}) {
+  if (!adminToken) {
+    updateStatus(action, "error 401", "UNAUTHORIZED");
+    throw { type: "missing-token" };
+  }
   const headers = { ...(options.headers || {}) };
   if (adminToken) {
     headers["X-ADMIN-TOKEN"] = adminToken;
@@ -609,6 +632,10 @@ async function adminRequest(action, path, payload, options = {}) {
 function formatErrorDisplay(err) {
   if (err && err.type === "network") {
     return { message: "No se pudo conectar.", detail: "network/cors" };
+  }
+
+  if (err && err.type === "missing-token") {
+    return { message: "Token requerido.", detail: "X-ADMIN-TOKEN" };
   }
 
   if (err && err.type === "http") {
@@ -653,6 +680,11 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function maskToken(token) {
+  const suffix = token.length >= 4 ? token.slice(-4) : "";
+  return `••••${suffix}`;
 }
 
 function renderRoute() {
