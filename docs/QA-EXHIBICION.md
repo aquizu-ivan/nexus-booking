@@ -98,4 +98,14 @@ Checklist TICKET-00:
 - Fix: `prestart` usa `pnpm run deploy:prepare` y prisma corre desde cwd.
 - Verificacion: `pnpm -C apps/api run deploy:prepare`.
 
+## QA de exhibicion completa - TICKET-12
+- Health: `curl https://nexus-booking-nexus-booking.up.railway.app/health` (200).
+- Web: abrir `https://aquizu-ivan.github.io/nexus-booking/`.
+- Home: carga y muestra API_BASE correcto.
+- Services: lista servicios desde `/services`.
+- Availability: devuelve slots para servicio y fecha.
+- Booking: crea reserva y maneja 409.
+- Admin: `#/admin` opera con token en memoria.
+- Consola: limpia en produccion.
+
 Regla: cada ticket debe dejar evidencia reproducible.
