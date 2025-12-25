@@ -12,8 +12,18 @@ app.locals.gitSha = gitSha;
 const DAY_NAMES = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
 app.use(express.json());
+const corsAllowList = (process.env.CORS_ORIGIN || "http://localhost:5173")
+  .split(",")
+  .map((item) => item.trim())
+  .filter(Boolean);
+
 app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  const originHeader = req.get("Origin");
+  const isAllowedOrigin = originHeader && corsAllowList.includes(originHeader);
+
+  if (isAllowedOrigin) {
+    res.setHeader("Access-Control-Allow-Origin", originHeader);
+  }
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-ADMIN-TOKEN");
 

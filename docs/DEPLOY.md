@@ -31,6 +31,7 @@ Variables de entorno (prod):
 - API_PUBLIC_URL (API, opcional para /health expected.apiBase)
 - PUBLIC_API_BASE (API, canónica para /health expected.apiBase, setear a `https://nexus-booking-nexus-booking.up.railway.app`)
 - PUBLIC_WEB_BASE (API, opcional para /health expected.webBaseUrl)
+- CORS_ORIGIN (API, allowlist): `http://localhost:5173,https://aquizu-ivan.github.io`
 
 Git SHA en Pages (opcional):
 - Si se quisiera mostrar en UI, exponer `VITE_GIT_SHA` desde Actions usando `GITHUB_SHA`.
