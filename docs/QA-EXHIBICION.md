@@ -115,4 +115,7 @@ Checklist TICKET-00:
 ## Git SHA real - TICKET-14
 - Verificar: `gitSha` debe ser distinto de `unknown` cuando la env este configurada.
 
+## expected.apiBase - TICKET-15
+- Verificar: `/health` debe devolver `expected.apiBase` con `https://nexus-booking-nexus-booking.up.railway.app`.
+
 Regla: cada ticket debe dejar evidencia reproducible.

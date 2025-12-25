@@ -138,8 +138,9 @@ app.get("/health", (req, res) => {
     startedAt: app.locals.startedAt,
     node: process.version,
     expected: {
-      apiBase: process.env.API_PUBLIC_URL || null,
+      apiBase: process.env.PUBLIC_API_BASE || process.env.API_PUBLIC_URL || null,
       webBasePath: "/nexus-booking/",
+      webBaseUrl: process.env.PUBLIC_WEB_BASE || null,
       routes: ["/health", "/services", "/availability", "/bookings", "/admin/..."],
     },
   });
