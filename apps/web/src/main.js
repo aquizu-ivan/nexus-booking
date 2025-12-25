@@ -112,7 +112,10 @@ function renderHome() {
     <section class="panel">
       <h2>Accesos rapidos</h2>
       <p class="muted">Inicia el flujo principal del usuario final.</p>
-      <a class="cta" href="#/booking">Reservar ahora</a>
+      <div class="cta-row">
+        <a class="cta" href="#/booking">Reservar ahora</a>
+        <a class="ghost" href="#/admin">Admin</a>
+      </div>
     </section>
   `);
 
@@ -373,19 +376,25 @@ function renderAdmin() {
     </section>
 
     <section class="panel">
-      <h2>Crear servicio</h2>
+      <h2>Servicios</h2>
+      <div class="status-row">
+        <button id="admin-services-load" type="button">Cargar servicios</button>
+        <div id="admin-services-state" class="status"></div>
+      </div>
+      <div id="admin-services-list" class="grid"></div>
+      <h3>Crear servicio</h3>
       <form id="admin-service-form">
         <label>
           name
-          <input name="name" type="text" required />
+          <input name="name" type="text" minlength="2" maxlength="80" required />
         </label>
         <label>
           description
-          <input name="description" type="text" required />
+          <input name="description" type="text" maxlength="500" />
         </label>
         <label>
-          duration_minutes
-          <input name="duration_minutes" type="number" min="1" required />
+          duration_min
+          <input name="duration_min" type="number" min="5" required />
         </label>
         <label class="inline">
           <input name="active" type="checkbox" checked />
@@ -445,6 +454,9 @@ function renderAdmin() {
   const tokenInput = document.getElementById("admin-token");
   const tokenState = document.getElementById("token-state");
   const tokenClear = document.getElementById("token-clear");
+  const servicesLoad = document.getElementById("admin-services-load");
+  const servicesState = document.getElementById("admin-services-state");
+  const servicesList = document.getElementById("admin-services-list");
   const serviceForm = document.getElementById("admin-service-form");
   const serviceState = document.getElementById("admin-service-state");
   const availabilityForm = document.getElementById("admin-availability-form");
@@ -470,15 +482,54 @@ function renderAdmin() {
 
   updateTokenState();
 
+  servicesLoad.addEventListener("click", async () => {
+    servicesList.innerHTML = "";
+    if (!adminToken) {
+      setStatusMessage(servicesState, "Token requerido.");
+      return;
+    }
+    setStatusMessage(servicesState, "Cargando servicios...");
+    try {
+      const data = await adminRequest("admin fetch services", "/admin/services");
+      const services = data.services || [];
+      if (services.length === 0) {
+        setStatusMessage(servicesState, "Sin servicios.");
+        return;
+      }
+      servicesState.textContent = "";
+      servicesList.innerHTML = services
+        .map(
+          (service) => `
+            <article>
+              <h3>${escapeHtml(service.name)}</h3>
+              <p>${escapeHtml(service.description || "")}</p>
+              <div class="meta">
+                <span>Duracion: ${service.duration_minutes} min</span>
+                <span>${service.active ? "Activo" : "Inactivo"}</span>
+              </div>
+            </article>
+          `
+        )
+        .join("");
+    } catch (err) {
+      const display = formatErrorDisplay(err);
+      setStatusMessage(servicesState, display.message, display.detail, "error");
+    }
+  });
+
   serviceForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!adminToken) {
+      setStatusMessage(serviceState, "Token requerido.");
+      return;
+    }
     setStatusMessage(serviceState, "Creando servicio...");
 
     const formData = new FormData(serviceForm);
     const payload = {
       name: formData.get("name")?.toString().trim(),
       description: formData.get("description")?.toString().trim(),
-      duration_minutes: Number(formData.get("duration_minutes")),
+      duration_min: Number(formData.get("duration_min")),
       active: formData.get("active") === "on",
     };
 
@@ -652,9 +703,22 @@ function formatErrorDisplay(err) {
       message = "Error interno.";
     }
 
-    const detail = err.data?.error
-      ? `${err.data.error.code}: ${err.data.error.message}`
-      : "";
+    const detailParts = [];
+    if (err.data?.error?.code && err.data?.error?.message) {
+      detailParts.push(`${err.data.error.code}: ${err.data.error.message}`);
+    } else if (err.data?.error?.code) {
+      detailParts.push(err.data.error.code);
+    }
+    const details = err.data?.error?.details;
+    if (details && typeof details === "object") {
+      if (details.reason) {
+        detailParts.push(`reason=${details.reason}`);
+      }
+      if (details.request_id) {
+        detailParts.push(`request_id=${details.request_id}`);
+      }
+    }
+    const detail = detailParts.join(" | ");
     return { message, detail };
   }
 
@@ -684,7 +748,7 @@ function escapeHtml(value) {
 
 function maskToken(token) {
   const suffix = token.length >= 4 ? token.slice(-4) : "";
-  return `••••${suffix}`;
+  return `****${suffix}`;
 }
 
 function renderRoute() {

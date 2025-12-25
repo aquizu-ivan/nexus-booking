@@ -11,6 +11,7 @@ Error shape global:
 ## Publico
 
 ### GET /services
+Solo devuelve servicios `active=true`.
 Respuesta 200:
 
 ```json
@@ -113,8 +114,52 @@ Errores esperados:
 Header requerido:
 - X-ADMIN-TOKEN: <token>
 
+### GET /admin/services
+Respuesta 200:
+
+```json
+{
+  "ok": true,
+  "services": [
+    {
+      "id": 1,
+      "name": "Servicio Demo",
+      "description": "Servicio base",
+      "duration_minutes": 60,
+      "active": true,
+      "created_at": "2025-01-01T09:00:00.000Z"
+    }
+  ]
+}
+```
+
 ### POST /admin/services
-Igual a POST /services, pero requiere header admin.
+Request:
+
+```json
+{
+  "name": "Servicio Admin",
+  "description": "",
+  "duration_min": 45,
+  "active": true
+}
+```
+
+Respuesta 201:
+
+```json
+{
+  "ok": true,
+  "service": {
+    "id": 3,
+    "name": "Servicio Admin",
+    "description": "",
+    "duration_minutes": 45,
+    "active": true,
+    "created_at": "2025-01-02T10:00:00.000Z"
+  }
+}
+```
 
 ### POST /admin/availability
 Request:
@@ -156,3 +201,29 @@ Respuesta 200:
 Errores admin esperados:
 - UNAUTHORIZED (401): falta X-ADMIN-TOKEN.
 - FORBIDDEN (403): token invalido o no configurado.
+
+Ejemplos:
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Unauthorized",
+    "details": { "reason": "missing admin token" },
+    "timestamp": "2025-01-02T10:00:00.000Z"
+  }
+}
+```
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "Forbidden",
+    "details": { "reason": "invalid admin token" },
+    "timestamp": "2025-01-02T10:00:00.000Z"
+  }
+}
+```

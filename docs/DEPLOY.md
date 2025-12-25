@@ -15,6 +15,10 @@ Orden de arranque prod (sin secretos):
 2) prisma migrate deploy
 3) start
 
+Start local vs prod:
+- Local DEV: `pnpm -C apps/api run start` (no corre Prisma por diseno).
+- Prod Railway: usar `pnpm -C apps/api run start:prod` (ejecuta deploy:prepare antes de arrancar).
+
 GitHub Pages (web):
 - Build: `pnpm -C apps/web run build -- --base=/nexus-booking/`
 - Publicacion manual: subir `apps/web/dist` a la rama `gh-pages`.
@@ -29,7 +33,7 @@ Variables de entorno (prod):
 - GIT_SHA (API, opcional para /health si Railway no provee SHA)
 - RAILWAY_GIT_COMMIT_SHA (Railway, preferido si existe)
 - API_PUBLIC_URL (API, opcional para /health expected.apiBase)
-- PUBLIC_API_BASE (API, canónica para /health expected.apiBase, setear a `https://nexus-booking-nexus-booking.up.railway.app`)
+- PUBLIC_API_BASE (API, canonica para /health expected.apiBase, setear a `https://nexus-booking-nexus-booking.up.railway.app`)
 - PUBLIC_WEB_BASE (API, opcional para /health expected.webBaseUrl)
 - CORS_ORIGIN (API, allowlist): `http://localhost:5173,https://aquizu-ivan.github.io`
 - ADMIN_ACCESS_TOKEN vive solo en Railway/env, nunca en repo ni UI.

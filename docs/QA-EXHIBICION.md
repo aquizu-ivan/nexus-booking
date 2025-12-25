@@ -88,6 +88,25 @@ Checklist TICKET-00:
 - Cancelar reserva: boton cancelar -> status actualizado.
 - Estados a validar: 401/403, 400, 409, 500, success.
 
+## Admin servicios - TICKET-19
+- DEV (web): `pnpm -C apps/web run dev` y abrir `http://localhost:5173/#/admin`.
+- DEV (API): `pnpm -C apps/api run start`.
+- DEV (UI): cargar token, `Cargar servicios`, crear servicio y verificar que aparece.
+- DEV (CLI):
+  - `curl -i -H "X-ADMIN-TOKEN: <token>" http://localhost:4000/admin/services`
+  - `curl -i -H "X-ADMIN-TOKEN: <token>" -H "Content-Type: application/json" -d "{\"name\":\"Servicio Admin\",\"description\":\"\",\"duration_min\":30,\"active\":true}" http://localhost:4000/admin/services`
+- PROD (web): abrir `https://aquizu-ivan.github.io/nexus-booking/#/admin`, cargar token, listar y crear servicio.
+- PROD (CLI):
+  - `curl -i -H "X-ADMIN-TOKEN: <token>" https://nexus-booking-nexus-booking.up.railway.app/admin/services`
+  - `curl -i -H "X-ADMIN-TOKEN: <token>" -H "Content-Type: application/json" -d "{\"name\":\"Servicio Admin\",\"description\":\"\",\"duration_min\":30,\"active\":true}" https://nexus-booking-nexus-booking.up.railway.app/admin/services`
+
+## Verificacion TICKET-19
+- En la misma terminal (PowerShell): `$env:DATABASE_URL="<db-url>"; $env:ADMIN_ACCESS_TOKEN="<token>"`
+- Arrancar API: `pnpm -C apps/api run start`
+- Sin header: `curl -i http://localhost:4000/admin/services` (401)
+- Header invalido: `curl -i -H "X-ADMIN-TOKEN: invalid" http://localhost:4000/admin/services` (403)
+- Token valido: `curl -i -H "X-ADMIN-TOKEN: <token>" http://localhost:4000/admin/services` (200)
+
 ## Token admin no persistente - TICKET-17
 - Recargar la pagina en #/admin: vuelve a "Sin token".
 - Acciones admin sin token muestran error claro.
@@ -106,8 +125,12 @@ Checklist TICKET-00:
 
 ## Railway prestart - TICKET-12B
 - Motivo: Railway ejecuta desde `apps/api`, no usar `pnpm -C apps/api` dentro de scripts.
-- Fix: `prestart` usa `pnpm run deploy:prepare` y prisma corre desde cwd.
+- Fix: `start:prod` ejecuta `deploy:prepare` desde cwd antes de arrancar.
 - Verificacion: `pnpm -C apps/api run deploy:prepare`.
+
+## Start local sin Prisma - TICKET-19
+- Local DEV: `pnpm -C apps/api run start` (no requiere DATABASE_URL).
+- Prod Railway: `pnpm -C apps/api run start:prod` (corre deploy:prepare antes de levantar).
 
 ## QA de exhibicion completa - TICKET-12
 - Health: `curl https://nexus-booking-nexus-booking.up.railway.app/health` (200).

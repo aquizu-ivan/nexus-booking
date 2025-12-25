@@ -91,11 +91,17 @@ function logError(err, req) {
   const requestId = req && req.requestId ? req.requestId : "unknown";
   const method = req && req.method ? req.method : "unknown";
   const path = req && (req.originalUrl || req.url) ? req.originalUrl || req.url : "unknown";
+  const errorName = err && err.name ? err.name : "Error";
+  const errorMessage =
+    err && err.message ? err.message.split("\n").slice(0, 1).join(" ") : "unknown";
   const prismaCode = err && typeof err.code === "string" ? err.code : "n/a";
   const prismaMeta = err && err.meta ? safeStringify(err.meta) : "n/a";
   console.error(
-    `ERROR request_id=${requestId} method=${method} path=${path} prisma_code=${prismaCode} prisma_meta=${prismaMeta}`
+    `ERROR request_id=${requestId} method=${method} path=${path} name=${errorName} message=${errorMessage} prisma_code=${prismaCode} prisma_meta=${prismaMeta}`
   );
+  if (err && err.stack) {
+    console.error(`STACK request_id=${requestId} ${err.stack}`);
+  }
 }
 
 function parseDayOfWeek(value) {
@@ -129,17 +135,33 @@ function requireAdmin(req, res, next) {
 }
 
 function handleCreateService(req, res, next) {
-  const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
-  const description = typeof req.body?.description === "string" ? req.body.description.trim() : "";
-  const durationMinutes = parsePositiveInt(req.body?.duration_minutes);
+  const nameInput = typeof req.body?.name === "string" ? req.body.name.trim() : "";
+  const nameOk = nameInput.length >= 2 && nameInput.length <= 80;
+
+  const descriptionProvided = req.body && Object.prototype.hasOwnProperty.call(req.body, "description");
+  let description = "";
+  let descriptionOk = true;
+  if (descriptionProvided) {
+    if (typeof req.body.description !== "string") {
+      descriptionOk = false;
+    } else {
+      description = req.body.description.trim();
+      descriptionOk = description.length <= 500;
+    }
+  }
+
+  const rawDuration = req.body?.duration_min ?? req.body?.duration_minutes;
+  const durationMinutes = parsePositiveInt(rawDuration);
+  const durationOk = durationMinutes !== null && durationMinutes >= 5;
+
   const active = typeof req.body?.active === "boolean" ? req.body.active : true;
 
-  if (!name || !description || !durationMinutes) {
+  if (!nameOk || !descriptionOk || !durationOk) {
     return next(
       new AppError("VALIDATION_ERROR", {
-        name: Boolean(name),
-        description: Boolean(description),
-        duration_minutes: Boolean(durationMinutes),
+        name: nameOk,
+        description: descriptionOk,
+        duration_min: durationOk,
       })
     );
   }
@@ -147,7 +169,7 @@ function handleCreateService(req, res, next) {
   return prisma.services
     .create({
       data: {
-        name,
+        name: nameInput,
         description,
         duration_minutes: durationMinutes,
         active,
@@ -185,6 +207,7 @@ app.get("/health", (req, res) => {
 app.get("/services", async (req, res, next) => {
   try {
     const services = await prisma.services.findMany({
+      where: { active: true },
       orderBy: { id: "asc" },
     });
     res.status(200).json({ ok: true, services });
