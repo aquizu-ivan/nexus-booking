@@ -26,6 +26,8 @@ GitHub Pages (web):
 
 Variables de entorno (prod):
 - ADMIN_ACCESS_TOKEN (API, requerido para /admin)
+- GIT_SHA (API, opcional para /health)
+- API_PUBLIC_URL (API, opcional para /health expected.apiBase)
 
 Nota BOM (Windows):
 - package.json y JSON criticos deben estar en UTF-8 sin BOM.

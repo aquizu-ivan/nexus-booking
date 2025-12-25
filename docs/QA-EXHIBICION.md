@@ -108,4 +108,8 @@ Checklist TICKET-00:
 - Admin: `#/admin` opera con token en memoria.
 - Consola: limpia en produccion.
 
+## Health metadata - TICKET-13
+- Verificar identidad: `curl https://nexus-booking-nexus-booking.up.railway.app/health`.
+- Confirmar: `gitSha`, `startedAt`, `node`, `expected` presentes.
+
 Regla: cada ticket debe dejar evidencia reproducible.
