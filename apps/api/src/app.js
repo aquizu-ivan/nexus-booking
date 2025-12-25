@@ -5,7 +5,9 @@ const { AppError, buildErrorPayload, getErrorEntry } = require("./errors");
 const app = express();
 const prisma = new PrismaClient();
 const startedAt = new Date().toISOString();
+const gitSha = process.env.GIT_SHA || process.env.RAILWAY_GIT_COMMIT_SHA || "unknown";
 app.locals.startedAt = startedAt;
+app.locals.gitSha = gitSha;
 
 const DAY_NAMES = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
@@ -132,7 +134,7 @@ app.get("/health", (req, res) => {
     env: runtimeEnv,
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
-    gitSha: process.env.GIT_SHA || "unknown",
+    gitSha: app.locals.gitSha,
     startedAt: app.locals.startedAt,
     node: process.version,
     expected: {

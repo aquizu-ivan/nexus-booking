@@ -112,4 +112,7 @@ Checklist TICKET-00:
 - Verificar identidad: `curl https://nexus-booking-nexus-booking.up.railway.app/health`.
 - Confirmar: `gitSha`, `startedAt`, `node`, `expected` presentes.
 
+## Git SHA real - TICKET-14
+- Verificar: `gitSha` debe ser distinto de `unknown` cuando la env este configurada.
+
 Regla: cada ticket debe dejar evidencia reproducible.

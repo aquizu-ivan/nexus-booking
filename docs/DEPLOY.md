@@ -26,8 +26,12 @@ GitHub Pages (web):
 
 Variables de entorno (prod):
 - ADMIN_ACCESS_TOKEN (API, requerido para /admin)
-- GIT_SHA (API, opcional para /health)
+- GIT_SHA (API, opcional para /health si Railway no provee SHA)
+- RAILWAY_GIT_COMMIT_SHA (Railway, preferido si existe)
 - API_PUBLIC_URL (API, opcional para /health expected.apiBase)
+
+Git SHA en Pages (opcional):
+- Si se quisiera mostrar en UI, exponer `VITE_GIT_SHA` desde Actions usando `GITHUB_SHA`.
 
 Nota BOM (Windows):
 - package.json y JSON criticos deben estar en UTF-8 sin BOM.
