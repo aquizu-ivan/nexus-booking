@@ -2,10 +2,10 @@
   "name": "nexus-booking-api",
   "private": true,
   "scripts": {
-    "deploy:prepare": "pnpm -C apps/api exec -- prisma generate && pnpm -C apps/api exec -- prisma migrate deploy",
+    "deploy:prepare": "pnpm exec -- prisma generate && pnpm exec -- prisma migrate deploy",
     "db:migrate:deploy": "pnpm -C apps/api exec -- prisma migrate deploy",
     "db:migrate:status": "pnpm -C apps/api exec -- prisma migrate status",
-    "prestart": "pnpm -C apps/api run deploy:prepare",
+    "prestart": "pnpm run deploy:prepare",
     "start": "node src/server.js",
     "dev": "node src/server.js",
     "health:smoke": "node scripts/health-smoke.cjs",

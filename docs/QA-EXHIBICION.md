@@ -93,4 +93,9 @@ Checklist TICKET-00:
 - Resultado esperado: no debe ser `239 187 191` (UTF-8 BOM).
 - Prisma sin BOM / JSON sin BOM: mantener archivos criticos sin BOM.
 
+## Railway prestart - TICKET-12B
+- Motivo: Railway ejecuta desde `apps/api`, no usar `pnpm -C apps/api` dentro de scripts.
+- Fix: `prestart` usa `pnpm run deploy:prepare` y prisma corre desde cwd.
+- Verificacion: `pnpm -C apps/api run deploy:prepare`.
+
 Regla: cada ticket debe dejar evidencia reproducible.
