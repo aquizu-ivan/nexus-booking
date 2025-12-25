@@ -8,7 +8,9 @@ Error shape global:
 { "ok": false, "error": { "code": "...", "message": "...", "details": null, "timestamp": "..." } }
 ```
 
-## GET /services
+## Publico
+
+### GET /services
 Respuesta 200:
 
 ```json
@@ -27,7 +29,7 @@ Respuesta 200:
 }
 ```
 
-## POST /services
+### POST /services
 Request:
 
 ```json
@@ -55,7 +57,7 @@ Respuesta 201:
 }
 ```
 
-## GET /availability?serviceId=&date=
+### GET /availability?serviceId=&date=
 Parametros:
 - serviceId: integer
 - date: YYYY-MM-DD (UTC)
@@ -74,7 +76,7 @@ Respuesta 200:
 }
 ```
 
-## POST /bookings
+### POST /bookings
 Request:
 
 ```json
@@ -105,3 +107,52 @@ Errores esperados:
 - VALIDATION_ERROR (400): payload invalido o fecha en el pasado.
 - NOT_FOUND (404): user_id o service_id inexistente.
 - CONFLICT (409): fuera de disponibilidad, solapado, o colision por slot.
+
+## Admin (X-ADMIN-TOKEN requerido)
+
+Header requerido:
+- X-ADMIN-TOKEN: <token>
+
+### POST /admin/services
+Igual a POST /services, pero requiere header admin.
+
+### POST /admin/availability
+Request:
+
+```json
+{
+  "service_id": 1,
+  "date": "2025-12-29",
+  "start_time": "10:00",
+  "end_time": "11:00",
+  "active": true
+}
+```
+
+Respuesta 201:
+
+```json
+{ "ok": true, "slot": { "id": 1 } }
+```
+
+### GET /admin/bookings?serviceId=&date=
+Parametros:
+- date: YYYY-MM-DD (UTC)
+- serviceId: integer (opcional)
+
+Respuesta 200:
+
+```json
+{ "ok": true, "bookings": [ { "id": 10, "status": "pending" } ] }
+```
+
+### POST /admin/bookings/:id/cancel
+Respuesta 200:
+
+```json
+{ "ok": true, "booking": { "id": 10, "status": "cancelled" } }
+```
+
+Errores admin esperados:
+- UNAUTHORIZED (401): falta X-ADMIN-TOKEN.
+- FORBIDDEN (403): token invalido o no configurado.

@@ -11,7 +11,7 @@ app.use(express.json());
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-ADMIN-TOKEN");
 
   if (req.method === "OPTIONS") {
     res.status(204).end();
@@ -58,8 +58,68 @@ function parseTimeToMinutes(value) {
   return hours * 60 + minutes;
 }
 
+function parseDayOfWeek(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim().toLowerCase();
+  return DAY_NAMES.includes(normalized) ? normalized : null;
+}
+
 function getUtcMinutes(date) {
   return date.getUTCHours() * 60 + date.getUTCMinutes();
+}
+
+function requireAdmin(req, res, next) {
+  const configuredToken = process.env.ADMIN_ACCESS_TOKEN;
+  if (!configuredToken) {
+    return next(new AppError("FORBIDDEN", { reason: "admin token not configured" }));
+  }
+
+  const providedToken = req.get("X-ADMIN-TOKEN");
+  if (!providedToken) {
+    return next(new AppError("UNAUTHORIZED", { reason: "missing admin token" }));
+  }
+
+  if (providedToken !== configuredToken) {
+    return next(new AppError("FORBIDDEN", { reason: "invalid admin token" }));
+  }
+
+  return next();
+}
+
+function handleCreateService(req, res, next) {
+  const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
+  const description = typeof req.body?.description === "string" ? req.body.description.trim() : "";
+  const durationMinutes = parsePositiveInt(req.body?.duration_minutes);
+  const active = typeof req.body?.active === "boolean" ? req.body.active : true;
+
+  if (!name || !description || !durationMinutes) {
+    return next(
+      new AppError("VALIDATION_ERROR", {
+        name: Boolean(name),
+        description: Boolean(description),
+        duration_minutes: Boolean(durationMinutes),
+      })
+    );
+  }
+
+  return prisma.services
+    .create({
+      data: {
+        name,
+        description,
+        duration_minutes: durationMinutes,
+        active,
+        created_at: new Date(),
+      },
+    })
+    .then((service) => {
+      res.status(201).json({ ok: true, service });
+    })
+    .catch((err) => {
+      next(err);
+    });
 }
 
 app.get("/health", (req, res) => {
@@ -84,38 +144,7 @@ app.get("/services", async (req, res, next) => {
   }
 });
 
-app.post("/services", async (req, res, next) => {
-  const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
-  const description = typeof req.body?.description === "string" ? req.body.description.trim() : "";
-  const durationMinutes = parsePositiveInt(req.body?.duration_minutes);
-  const active = typeof req.body?.active === "boolean" ? req.body.active : true;
-
-  if (!name || !description || !durationMinutes) {
-    return next(
-      new AppError("VALIDATION_ERROR", {
-        name: Boolean(name),
-        description: Boolean(description),
-        duration_minutes: Boolean(durationMinutes),
-      })
-    );
-  }
-
-  try {
-    const service = await prisma.services.create({
-      data: {
-        name,
-        description,
-        duration_minutes: durationMinutes,
-        active,
-        created_at: new Date(),
-      },
-    });
-
-    res.status(201).json({ ok: true, service });
-  } catch (err) {
-    next(err);
-  }
-});
+app.post("/services", handleCreateService);
 
 app.get("/availability", async (req, res, next) => {
   const serviceId = parsePositiveInt(req.query?.serviceId);
@@ -277,6 +306,121 @@ app.post("/bookings", async (req, res, next) => {
       return next(new AppError("NOT_FOUND", { target: err.meta && err.meta.field_name }));
     }
     return next(err);
+  }
+});
+
+app.post("/admin/services", requireAdmin, handleCreateService);
+
+app.post("/admin/availability", requireAdmin, async (req, res, next) => {
+  const serviceId = parsePositiveInt(req.body?.service_id);
+  const dayFromDate = parseDateOnly(req.body?.date);
+  const dayName = dayFromDate ? DAY_NAMES[dayFromDate.getUTCDay()] : parseDayOfWeek(req.body?.day_of_week);
+  const startTime = typeof req.body?.start_time === "string" ? req.body.start_time : "";
+  const endTime = typeof req.body?.end_time === "string" ? req.body.end_time : "";
+  const startMinutes = parseTimeToMinutes(startTime);
+  const endMinutes = parseTimeToMinutes(endTime);
+  const active = typeof req.body?.active === "boolean" ? req.body.active : true;
+
+  if (!serviceId || !dayName || startMinutes === null || endMinutes === null || endMinutes <= startMinutes) {
+    return next(
+      new AppError("VALIDATION_ERROR", {
+        service_id: Boolean(serviceId),
+        day_of_week: Boolean(dayName),
+        start_time: startMinutes !== null,
+        end_time: endMinutes !== null && endMinutes > startMinutes,
+      })
+    );
+  }
+
+  try {
+    const service = await prisma.services.findUnique({ where: { id: serviceId } });
+    if (!service) {
+      return next(new AppError("NOT_FOUND", { target: "service", service_id: serviceId }));
+    }
+
+    const slot = await prisma.availability.create({
+      data: {
+        service_id: serviceId,
+        day_of_week: dayName,
+        start_time: startTime,
+        end_time: endTime,
+        active,
+      },
+    });
+
+    res.status(201).json({ ok: true, slot });
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.get("/admin/bookings", requireAdmin, async (req, res, next) => {
+  const serviceIdRaw = req.query?.serviceId;
+  const serviceId = serviceIdRaw ? parsePositiveInt(serviceIdRaw) : null;
+  const dateValue = parseDateOnly(req.query?.date);
+
+  if (!dateValue || (serviceIdRaw && !serviceId)) {
+    return next(
+      new AppError("VALIDATION_ERROR", {
+        serviceId: Boolean(serviceId),
+        date: Boolean(dateValue),
+      })
+    );
+  }
+
+  const dayStart = new Date(
+    Date.UTC(dateValue.getUTCFullYear(), dateValue.getUTCMonth(), dateValue.getUTCDate(), 0, 0, 0, 0)
+  );
+  const dayEnd = new Date(
+    Date.UTC(dateValue.getUTCFullYear(), dateValue.getUTCMonth(), dateValue.getUTCDate(), 23, 59, 59, 999)
+  );
+
+  try {
+    const where = {
+      start_at: {
+        gte: dayStart,
+        lte: dayEnd,
+      },
+    };
+    if (serviceId) {
+      where.service_id = serviceId;
+    }
+
+    const bookings = await prisma.bookings.findMany({
+      where,
+      orderBy: { start_at: "asc" },
+    });
+
+    res.status(200).json({ ok: true, bookings });
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.post("/admin/bookings/:id/cancel", requireAdmin, async (req, res, next) => {
+  const bookingId = parsePositiveInt(req.params?.id);
+  if (!bookingId) {
+    return next(new AppError("VALIDATION_ERROR", { id: false }));
+  }
+
+  try {
+    const booking = await prisma.bookings.findUnique({ where: { id: bookingId } });
+    if (!booking) {
+      return next(new AppError("NOT_FOUND", { target: "booking", id: bookingId }));
+    }
+
+    if (booking.status === "cancelled") {
+      return res.status(200).json({ ok: true, booking });
+    }
+
+    const updated = await prisma.bookings.update({
+      where: { id: bookingId },
+      data: { status: "cancelled" },
+    });
+
+    res.status(200).json({ ok: true, booking: updated });
+  } catch (err) {
+    next(err);
   }
 });
 
