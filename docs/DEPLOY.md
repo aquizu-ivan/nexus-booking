@@ -19,3 +19,6 @@ GitHub Pages (web):
 - Build: `pnpm -C apps/web run build -- --base=/nexus-booking/`
 - Publicacion manual: subir `apps/web/dist` a la rama `gh-pages`.
 - VITE_API_BASE_URL: setear en el entorno de build (Pages) con la URL de Railway.
+
+Variables de entorno (prod):
+- ADMIN_ACCESS_TOKEN (API, requerido para /admin)

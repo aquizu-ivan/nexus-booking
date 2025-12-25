@@ -14,6 +14,16 @@ const ERROR_CATALOG = Object.freeze({
     httpStatus: 409,
     message: "Conflict detected",
   },
+  UNAUTHORIZED: {
+    code: "UNAUTHORIZED",
+    httpStatus: 401,
+    message: "Unauthorized",
+  },
+  FORBIDDEN: {
+    code: "FORBIDDEN",
+    httpStatus: 403,
+    message: "Forbidden",
+  },
   INTERNAL_ERROR: {
     code: "INTERNAL_ERROR",
     httpStatus: 500,

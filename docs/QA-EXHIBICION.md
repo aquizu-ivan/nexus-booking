@@ -79,4 +79,13 @@ Checklist TICKET-00:
 - Paso 4: Confirmar reserva -> estado ok con ID.
 - Estados a validar: loading, empty, error network, 400, 409, 500, success.
 
+## Admin minimo - TICKET-11
+- Setear ADMIN_ACCESS_TOKEN en entorno (no se commitea).
+- Web: ir a #/admin, ingresar token en memoria.
+- Crear servicio: form completo -> estado ok con ID.
+- Crear disponibilidad: service_id + date + start/end -> estado ok.
+- Ver reservas: date (y service_id opcional) -> lista o empty.
+- Cancelar reserva: boton cancelar -> status actualizado.
+- Estados a validar: 401/403, 400, 409, 500, success.
+
 Regla: cada ticket debe dejar evidencia reproducible.

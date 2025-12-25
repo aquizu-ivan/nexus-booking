@@ -204,6 +204,13 @@ label {
   font-size: 0.95rem;
 }
 
+.inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+
 input {
   padding: 10px 12px;
   border-radius: 10px;

@@ -3,6 +3,8 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
 const app = document.getElementById("app");
 
+let adminToken = "";
+
 const uiState = {
   action: "-",
   result: "-",
@@ -13,6 +15,7 @@ const routes = {
   "#/": renderHome,
   "#/services": renderServices,
   "#/booking": renderBooking,
+  "#/admin": renderAdmin,
 };
 
 function setActiveLink() {
@@ -68,6 +71,7 @@ function renderLayout(content) {
           <a href="#/">Home</a>
           <a href="#/services">Services</a>
           <a href="#/booking">Reservar</a>
+          <a href="#/admin">Admin</a>
         </nav>
       </header>
       <section class="status-panel">
@@ -353,6 +357,217 @@ function renderBooking() {
   });
 }
 
+function renderAdmin() {
+  renderLayout(`
+    <section class="panel">
+      <h2>Admin minimo</h2>
+      <p class="muted">Token solo en memoria. No se guarda.</p>
+      <label>
+        Admin token
+        <input id="admin-token" type="password" placeholder="X-ADMIN-TOKEN" />
+      </label>
+    </section>
+
+    <section class="panel">
+      <h2>Crear servicio</h2>
+      <form id="admin-service-form">
+        <label>
+          name
+          <input name="name" type="text" required />
+        </label>
+        <label>
+          description
+          <input name="description" type="text" required />
+        </label>
+        <label>
+          duration_minutes
+          <input name="duration_minutes" type="number" min="1" required />
+        </label>
+        <label class="inline">
+          <input name="active" type="checkbox" checked />
+          active
+        </label>
+        <button type="submit">Crear</button>
+      </form>
+      <div id="admin-service-state" class="status"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Disponibilidad</h2>
+      <form id="admin-availability-form">
+        <label>
+          service_id
+          <input name="service_id" type="number" min="1" required />
+        </label>
+        <label>
+          date (UTC)
+          <input name="date" type="date" required />
+        </label>
+        <label>
+          start_time
+          <input name="start_time" type="time" required />
+        </label>
+        <label>
+          end_time
+          <input name="end_time" type="time" required />
+        </label>
+        <label class="inline">
+          <input name="active" type="checkbox" checked />
+          active
+        </label>
+        <button type="submit">Guardar slot</button>
+      </form>
+      <div id="admin-availability-state" class="status"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Reservas del dia</h2>
+      <form id="admin-bookings-form">
+        <label>
+          service_id (opcional)
+          <input name="service_id" type="number" min="1" />
+        </label>
+        <label>
+          date (UTC)
+          <input name="date" type="date" required />
+        </label>
+        <button type="submit">Ver reservas</button>
+      </form>
+      <div id="admin-bookings-state" class="status"></div>
+      <div id="admin-bookings-list" class="grid"></div>
+    </section>
+  `);
+
+  const tokenInput = document.getElementById("admin-token");
+  const serviceForm = document.getElementById("admin-service-form");
+  const serviceState = document.getElementById("admin-service-state");
+  const availabilityForm = document.getElementById("admin-availability-form");
+  const availabilityState = document.getElementById("admin-availability-state");
+  const bookingsForm = document.getElementById("admin-bookings-form");
+  const bookingsState = document.getElementById("admin-bookings-state");
+  const bookingsList = document.getElementById("admin-bookings-list");
+
+  tokenInput.addEventListener("input", () => {
+    adminToken = tokenInput.value.trim();
+  });
+
+  serviceForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    setStatusMessage(serviceState, "Creando servicio...");
+
+    const formData = new FormData(serviceForm);
+    const payload = {
+      name: formData.get("name")?.toString().trim(),
+      description: formData.get("description")?.toString().trim(),
+      duration_minutes: Number(formData.get("duration_minutes")),
+      active: formData.get("active") === "on",
+    };
+
+    try {
+      const data = await adminRequest("admin create service", "/admin/services", payload);
+      setStatusMessage(
+        serviceState,
+        `Servicio creado. ID: ${data.service?.id ?? "(sin id)"}`,
+        "",
+        "ok"
+      );
+      serviceForm.reset();
+    } catch (err) {
+      const display = formatErrorDisplay(err);
+      setStatusMessage(serviceState, display.message, display.detail, "error");
+    }
+  });
+
+  availabilityForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    setStatusMessage(availabilityState, "Guardando disponibilidad...");
+
+    const formData = new FormData(availabilityForm);
+    const payload = {
+      service_id: Number(formData.get("service_id")),
+      date: formData.get("date")?.toString(),
+      start_time: formData.get("start_time")?.toString(),
+      end_time: formData.get("end_time")?.toString(),
+      active: formData.get("active") === "on",
+    };
+
+    try {
+      const data = await adminRequest("admin create availability", "/admin/availability", payload);
+      setStatusMessage(
+        availabilityState,
+        `Slot creado. ID: ${data.slot?.id ?? "(sin id)"}`,
+        "",
+        "ok"
+      );
+      availabilityForm.reset();
+    } catch (err) {
+      const display = formatErrorDisplay(err);
+      setStatusMessage(availabilityState, display.message, display.detail, "error");
+    }
+  });
+
+  bookingsForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    setStatusMessage(bookingsState, "Buscando reservas...");
+    bookingsList.innerHTML = "";
+
+    const formData = new FormData(bookingsForm);
+    const serviceId = formData.get("service_id")?.toString().trim();
+    const dateValue = formData.get("date")?.toString().trim();
+    const query = new URLSearchParams({ date: dateValue || "" });
+    if (serviceId) {
+      query.set("serviceId", serviceId);
+    }
+
+    try {
+      const data = await adminRequest("admin fetch bookings", `/admin/bookings?${query.toString()}`);
+      const bookings = data.bookings || [];
+      if (bookings.length === 0) {
+        setStatusMessage(bookingsState, "Sin reservas para ese dia.");
+        return;
+      }
+      bookingsState.textContent = "";
+      bookingsList.innerHTML = bookings
+        .map(
+          (booking) => `
+            <article>
+              <h3>#${booking.id}</h3>
+              <p>Service: ${booking.service_id} | User: ${booking.user_id}</p>
+              <p>Start: ${new Date(booking.start_at).toISOString()}</p>
+              <p>Status: ${booking.status}</p>
+              <button class="cancel-btn" data-id="${booking.id}">Cancelar</button>
+            </article>
+          `
+        )
+        .join("");
+
+      bookingsList.querySelectorAll(".cancel-btn").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const bookingId = button.dataset.id;
+          button.disabled = true;
+          try {
+            const data = await adminRequest(
+              "admin cancel booking",
+              `/admin/bookings/${bookingId}/cancel`,
+              { method: "POST" }
+            );
+            button.textContent = "Cancelado";
+            button.disabled = true;
+            updateStatus("admin cancel booking", "ok", `booking ${data.booking?.id || bookingId}`);
+          } catch (err) {
+            button.disabled = false;
+            const display = formatErrorDisplay(err);
+            setStatusMessage(bookingsState, display.message, display.detail, "error");
+          }
+        });
+      });
+    } catch (err) {
+      const display = formatErrorDisplay(err);
+      setStatusMessage(bookingsState, display.message, display.detail, "error");
+    }
+  });
+}
+
 async function apiRequest(action, path, options = {}) {
   updateStatus(action, "loading");
   let response;
@@ -372,6 +587,25 @@ async function apiRequest(action, path, options = {}) {
   return data;
 }
 
+async function adminRequest(action, path, payload, options = {}) {
+  const headers = { ...(options.headers || {}) };
+  if (adminToken) {
+    headers["X-ADMIN-TOKEN"] = adminToken;
+  }
+  if (payload && !options.body) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  const requestOptions = {
+    method: payload ? "POST" : options.method || "GET",
+    ...options,
+    headers,
+    body: payload && !options.body ? JSON.stringify(payload) : options.body,
+  };
+
+  return apiRequest(action, path, requestOptions);
+}
+
 function formatErrorDisplay(err) {
   if (err && err.type === "network") {
     return { message: "No se pudo conectar.", detail: "network/cors" };
@@ -379,7 +613,11 @@ function formatErrorDisplay(err) {
 
   if (err && err.type === "http") {
     let message = "Solicitud fallida.";
-    if (err.status === 409) {
+    if (err.status === 401) {
+      message = "Token requerido.";
+    } else if (err.status === 403) {
+      message = "Token invalido.";
+    } else if (err.status === 409) {
       message = "Ese horario ya fue tomado.";
     } else if (err.status >= 400 && err.status < 500) {
       message = "Datos invalidos.";
