@@ -88,6 +88,10 @@ Checklist TICKET-00:
 - Cancelar reserva: boton cancelar -> status actualizado.
 - Estados a validar: 401/403, 400, 409, 500, success.
 
+## Token admin no persistente - TICKET-17
+- Recargar la pagina en #/admin: vuelve a "Sin token".
+- Acciones admin sin token muestran error claro.
+
 ## Hotfix BOM - TICKET-12
 - Verificar BOM: `Get-Content -Encoding Byte -TotalCount 3 package.json`.
 - Resultado esperado: no debe ser `239 187 191` (UTF-8 BOM).
