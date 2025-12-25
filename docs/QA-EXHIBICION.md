@@ -72,4 +72,11 @@ Checklist TICKET-00:
 - Requiere API local en `http://localhost:4000`.
 - PROD: VITE_API_BASE_URL apunta a Railway en el build de Pages.
 
+## Verificacion UX usuario final - TICKET-10
+- Paso 1: Home carga, estado muestra API_BASE y ultima accion.
+- Paso 2: Reservar -> elegir servicio + fecha -> buscar disponibilidad.
+- Paso 3: Slots muestra loading, empty si no hay, o lista seleccionable.
+- Paso 4: Confirmar reserva -> estado ok con ID.
+- Estados a validar: loading, empty, error network, 400, 409, 500, success.
+
 Regla: cada ticket debe dejar evidencia reproducible.
