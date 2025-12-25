@@ -118,4 +118,8 @@ Checklist TICKET-00:
 ## expected.apiBase - TICKET-15
 - Verificar: `/health` debe devolver `expected.apiBase` con `https://nexus-booking-nexus-booking.up.railway.app`.
 
+## CORS contrato - TICKET-16
+- Permitido: `curl -i -H "Origin: https://aquizu-ivan.github.io" https://nexus-booking-nexus-booking.up.railway.app/health` (debe responder `Access-Control-Allow-Origin`).
+- Denegado: `curl -i -H "Origin: https://evil.example" https://nexus-booking-nexus-booking.up.railway.app/health` (no debe incluir `Access-Control-Allow-Origin`).
+
 Regla: cada ticket debe dejar evidencia reproducible.
