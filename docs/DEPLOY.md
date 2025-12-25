@@ -29,6 +29,8 @@ Variables de entorno (prod):
 - GIT_SHA (API, opcional para /health si Railway no provee SHA)
 - RAILWAY_GIT_COMMIT_SHA (Railway, preferido si existe)
 - API_PUBLIC_URL (API, opcional para /health expected.apiBase)
+- PUBLIC_API_BASE (API, canónica para /health expected.apiBase, setear a `https://nexus-booking-nexus-booking.up.railway.app`)
+- PUBLIC_WEB_BASE (API, opcional para /health expected.webBaseUrl)
 
 Git SHA en Pages (opcional):
 - Si se quisiera mostrar en UI, exponer `VITE_GIT_SHA` desde Actions usando `GITHUB_SHA`.
