@@ -92,6 +92,13 @@ Checklist TICKET-00:
 - Recargar la pagina en #/admin: vuelve a "Sin token".
 - Acciones admin sin token muestran error claro.
 
+## Fix prod services/admin - TICKET-18
+- Prod /services: `curl https://nexus-booking-nexus-booking.up.railway.app/services` (200, puede ser `[]`).
+- Prod /admin/services sin token: `curl -i https://nexus-booking-nexus-booking.up.railway.app/admin/services` (401/403, no 404).
+- Prod /admin/services con token: `curl -i -H "X-ADMIN-TOKEN: <token>" https://nexus-booking-nexus-booking.up.railway.app/admin/services` (200).
+- Error responses incluyen `request_id` en `error.details` para correlacionar logs.
+- Pages: Services carga sin 500 en `https://aquizu-ivan.github.io/nexus-booking/`.
+
 ## Hotfix BOM - TICKET-12
 - Verificar BOM: `Get-Content -Encoding Byte -TotalCount 3 package.json`.
 - Resultado esperado: no debe ser `239 187 191` (UTF-8 BOM).

@@ -44,11 +44,25 @@ class AppError extends Error {
   }
 }
 
-function buildErrorPayload(code, details) {
+function mergeDetails(details, requestId) {
+  if (!requestId) {
+    return details;
+  }
+  if (details === undefined) {
+    return { request_id: requestId };
+  }
+  if (details && typeof details === "object" && !Array.isArray(details)) {
+    return { ...details, request_id: requestId };
+  }
+  return { value: details, request_id: requestId };
+}
+
+function buildErrorPayload(code, details, requestId) {
   const entry = getErrorEntry(code);
   const error = { code: entry.code, message: entry.message, timestamp: new Date().toISOString() };
-  if (details !== undefined) {
-    error.details = details;
+  const mergedDetails = mergeDetails(details, requestId);
+  if (mergedDetails !== undefined) {
+    error.details = mergedDetails;
   }
   return { ok: false, error };
 }

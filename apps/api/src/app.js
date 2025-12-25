@@ -1,4 +1,5 @@
-﻿const express = require("express");
+const { randomUUID } = require("crypto");
+const express = require("express");
 const { PrismaClient } = require("@prisma/client");
 const { AppError, buildErrorPayload, getErrorEntry } = require("./errors");
 
@@ -12,6 +13,12 @@ app.locals.gitSha = gitSha;
 const DAY_NAMES = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
 app.use(express.json());
+app.use((req, res, next) => {
+  const requestId = randomUUID();
+  req.requestId = requestId;
+  res.setHeader("X-Request-Id", requestId);
+  next();
+});
 const corsAllowList = (process.env.CORS_ORIGIN || "http://localhost:5173")
   .split(",")
   .map((item) => item.trim())
@@ -70,6 +77,25 @@ function parseTimeToMinutes(value) {
     return null;
   }
   return hours * 60 + minutes;
+}
+
+function safeStringify(value) {
+  try {
+    return JSON.stringify(value);
+  } catch (err) {
+    return "\"unserializable\"";
+  }
+}
+
+function logError(err, req) {
+  const requestId = req && req.requestId ? req.requestId : "unknown";
+  const method = req && req.method ? req.method : "unknown";
+  const path = req && (req.originalUrl || req.url) ? req.originalUrl || req.url : "unknown";
+  const prismaCode = err && typeof err.code === "string" ? err.code : "n/a";
+  const prismaMeta = err && err.meta ? safeStringify(err.meta) : "n/a";
+  console.error(
+    `ERROR request_id=${requestId} method=${method} path=${path} prisma_code=${prismaCode} prisma_meta=${prismaMeta}`
+  );
 }
 
 function parseDayOfWeek(value) {
@@ -163,7 +189,14 @@ app.get("/services", async (req, res, next) => {
     });
     res.status(200).json({ ok: true, services });
   } catch (err) {
-    next(err);
+    if (err instanceof AppError) {
+      return next(err);
+    }
+    if (err && typeof err.code === "string") {
+      logError(err, req);
+      return res.status(200).json({ ok: true, services: [] });
+    }
+    return next(err);
   }
 });
 
@@ -333,6 +366,16 @@ app.post("/bookings", async (req, res, next) => {
 });
 
 app.post("/admin/services", requireAdmin, handleCreateService);
+app.get("/admin/services", requireAdmin, async (req, res, next) => {
+  try {
+    const services = await prisma.services.findMany({
+      orderBy: { id: "asc" },
+    });
+    res.status(200).json({ ok: true, services });
+  } catch (err) {
+    next(err);
+  }
+});
 
 app.post("/admin/availability", requireAdmin, async (req, res, next) => {
   const serviceId = parsePositiveInt(req.body?.service_id);
@@ -449,24 +492,25 @@ app.post("/admin/bookings/:id/cancel", requireAdmin, async (req, res, next) => {
 
 app.use((req, res) => {
   const entry = getErrorEntry("NOT_FOUND");
-  res.status(entry.httpStatus).json(buildErrorPayload(entry.code));
+  res.status(entry.httpStatus).json(buildErrorPayload(entry.code, undefined, req.requestId));
 });
 
 app.use((err, req, res, next) => {
   if (err instanceof AppError) {
     const entry = getErrorEntry(err.code);
-    res.status(entry.httpStatus).json(buildErrorPayload(entry.code, err.details));
+    res.status(entry.httpStatus).json(buildErrorPayload(entry.code, err.details, req.requestId));
     return;
   }
 
   if (err && err.status === 400) {
     const entry = getErrorEntry("VALIDATION_ERROR");
-    res.status(entry.httpStatus).json(buildErrorPayload(entry.code));
+    res.status(entry.httpStatus).json(buildErrorPayload(entry.code, undefined, req.requestId));
     return;
   }
 
+  logError(err, req);
   const entry = getErrorEntry("INTERNAL_ERROR");
-  res.status(entry.httpStatus).json(buildErrorPayload(entry.code));
+  res.status(entry.httpStatus).json(buildErrorPayload(entry.code, undefined, req.requestId));
 });
 
 module.exports = app;
