@@ -74,7 +74,7 @@ Checklist TICKET-00:
 
 ## DEV minimo (sin Postgres)
 - DB local por defecto: si `DATABASE_URL` no existe, usa SQLite en `apps/api/prisma/dev.db`.
-- Preparar DB (solo la primera vez): `set DATABASE_URL=file:./dev.db` + `pnpm -C apps/api exec -- prisma db push`
+- Preparar DB (solo la primera vez): `pnpm -C apps/api run db:push`
 - API: `pnpm -C apps/api run start`
 - Web: `pnpm -C apps/web run dev`
 - QA identidad (A/B/C/D): abrir `http://localhost:5173/#/booking`
