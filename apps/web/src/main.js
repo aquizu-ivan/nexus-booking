@@ -88,6 +88,18 @@ function formatIdentityId(value) {
   return raw.slice(-4);
 }
 
+function normalizeSlotTime(value) {
+  if (typeof value !== "string") {
+    return "";
+  }
+  const match = value.match(/^(\d{2}:\d{2})/);
+  return match ? match[1] : value;
+}
+
+function isValidSlotTime(value) {
+  return typeof value === "string" && /^\d{2}:\d{2}$/.test(value);
+}
+
 function renderIdentityPanel() {
   const current = getIdentity();
   if (current) {
@@ -478,7 +490,12 @@ function renderBooking() {
     setStatusMessage(bookingState, "Creando reserva...");
 
     try {
-      const startAt = `${selectedSlot.date}T${selectedSlot.start}:00.000Z`;
+      const startTime = normalizeSlotTime(selectedSlot.start);
+      if (!isValidSlotTime(startTime)) {
+        setStatusMessage(bookingState, "Horario invalido.", "Selecciona otro slot.", "error");
+        return;
+      }
+      const startAt = `${selectedSlot.date}T${startTime}:00.000Z`;
       const data = await apiRequest("create booking", "/bookings", {
         method: "POST",
         headers: {
@@ -785,6 +802,7 @@ function formatErrorDisplay(err) {
   }
 
   if (err && err.type === "http") {
+    const details = err.data?.error?.details || {};
     let message = "Solicitud fallida.";
     if (err.status === 401) {
       message = "Token requerido.";
@@ -793,7 +811,13 @@ function formatErrorDisplay(err) {
     } else if (err.status === 409) {
       message = "Ese horario ya fue tomado.";
     } else if (err.status >= 400 && err.status < 500) {
-      message = "Datos invalidos.";
+      if (details.start_at === "past") {
+        message = "Horario en el pasado.";
+      } else if (details.start_at === false) {
+        message = "Horario invalido.";
+      } else {
+        message = "Datos invalidos.";
+      }
     } else if (err.status >= 500) {
       message = "Error interno.";
     }
