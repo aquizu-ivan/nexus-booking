@@ -13,6 +13,17 @@ const uiState = {
   detail: "",
 };
 
+function isDebugEnabled() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("debug") === "1") {
+    return true;
+  }
+  return window.location.hash.includes("debug=1");
+}
+
 const routes = {
   "#/": renderHome,
   "#/services": renderServices,
@@ -115,10 +126,10 @@ function renderIdentityPanel() {
     `;
   }
   return `
-    <section class="panel">
-      <h2>Tu identidad</h2>
-      <p class="muted">Crea un alias para reservar.</p>
-      <label>
+      <section class="panel">
+        <h2>Tu identidad</h2>
+        <p class="muted">Crea un alias para reservar.</p>
+        <label>
         Alias
         <input id="identity-alias" type="text" maxlength="80" />
       </label>
@@ -136,10 +147,12 @@ function wireIdentityPanel() {
     createButton.addEventListener("click", async () => {
       const alias = aliasInput.value.trim();
       if (!alias) {
-        setStatusMessage(stateEl, "Ingresa un alias.");
+        setError(stateEl, "Ingresa un alias.");
         return;
       }
-      setStatusMessage(stateEl, "Creando identidad...");
+      setLoading(stateEl, "Creando...");
+      setButtonLoading(createButton, "Creando...");
+      aliasInput.disabled = true;
       const clientSeed = generateClientSeed();
       try {
         const data = await apiRequest("create identity", "/users", {
@@ -148,7 +161,9 @@ function wireIdentityPanel() {
           body: JSON.stringify({ alias, clientSeed }),
         });
         if (!data.user || !data.user.id) {
-          setStatusMessage(stateEl, "No se pudo crear la identidad.", "", "error");
+          setError(stateEl, "No se pudo crear la identidad.");
+          clearButtonLoading(createButton);
+          aliasInput.disabled = false;
           return;
         }
         saveIdentity({
@@ -159,7 +174,9 @@ function wireIdentityPanel() {
         renderRoute();
       } catch (err) {
         const display = formatErrorDisplay(err);
-        setStatusMessage(stateEl, display.message, display.detail, "error");
+        setError(stateEl, display.message);
+        clearButtonLoading(createButton);
+        aliasInput.disabled = false;
       }
     });
   }
@@ -191,6 +208,9 @@ function updateStatus(action, result, detail = "") {
 }
 
 function renderStatus() {
+  if (!isDebugEnabled()) {
+    return;
+  }
   const actionEl = document.getElementById("status-action");
   if (!actionEl) {
     return;
@@ -212,6 +232,27 @@ function renderStatus() {
 }
 
 function renderLayout(content) {
+  const debugEnabled = isDebugEnabled();
+  const statusPanel = debugEnabled
+    ? `
+      <section class="status-panel">
+        <div class="status-item">
+          <span class="label">API_BASE</span>
+          <span id="status-api"></span>
+        </div>
+        <div class="status-item">
+          <span class="label">Ultima accion</span>
+          <span id="status-action"></span>
+        </div>
+        <div class="status-item">
+          <span class="label">Resultado</span>
+          <span id="status-result" data-state="idle"></span>
+          <small id="status-detail"></small>
+        </div>
+      </section>
+    `
+    : "";
+  const footer = debugEnabled ? `<footer><span>API Base: ${API_BASE}</span></footer>` : "";
   app.innerHTML = `
     <div class="page">
       <header>
@@ -229,25 +270,9 @@ function renderLayout(content) {
           <a href="#/admin">Admin</a>
         </nav>
       </header>
-      <section class="status-panel">
-        <div class="status-item">
-          <span class="label">API_BASE</span>
-          <span id="status-api"></span>
-        </div>
-        <div class="status-item">
-          <span class="label">Ultima accion</span>
-          <span id="status-action"></span>
-        </div>
-        <div class="status-item">
-          <span class="label">Resultado</span>
-          <span id="status-result" data-state="idle"></span>
-          <small id="status-detail"></small>
-        </div>
-      </section>
+      ${statusPanel}
       <main>${content}</main>
-      <footer>
-        <span>API Base: ${API_BASE}</span>
-      </footer>
+      ${footer}
     </div>
   `;
   setActiveLink();
@@ -292,7 +317,7 @@ function renderServices() {
     <section class="panel">
       <h2>Servicios</h2>
       <p class="muted">Listado simple desde /services.</p>
-      <div id="services-state" class="status">Cargando servicios...</div>
+      <div id="services-state" class="status">Cargando...</div>
       <div id="services-list" class="grid"></div>
     </section>
   `);
@@ -305,7 +330,7 @@ function renderServices() {
       state.textContent = "";
       const services = data.services || [];
       if (services.length === 0) {
-        setStatusMessage(state, "Sin servicios disponibles.");
+        setStatusMessage(state, "Todavia no hay servicios disponibles.");
         return;
       }
       list.innerHTML = services
@@ -325,7 +350,7 @@ function renderServices() {
     })
     .catch((err) => {
       const display = formatErrorDisplay(err);
-      setStatusMessage(state, display.message, display.detail, "error");
+      setError(state, display.message);
     });
 }
 
@@ -338,7 +363,7 @@ function renderBooking() {
 
       <div class="step">
         <h3>Paso A: Servicio y fecha</h3>
-        <div id="booking-services-state" class="status">Cargando servicios...</div>
+        <div id="booking-services-state" class="status">Cargando...</div>
         <div class="form-grid">
           <label>
             Servicio
@@ -405,7 +430,7 @@ function renderBooking() {
       services = data.services || [];
       servicesState.textContent = "";
       if (services.length === 0) {
-        setStatusMessage(servicesState, "Sin servicios disponibles.");
+        setStatusMessage(servicesState, "Todavia no hay servicios disponibles.");
         return;
       }
       services.forEach((service) => {
@@ -417,7 +442,7 @@ function renderBooking() {
     })
     .catch((err) => {
       const display = formatErrorDisplay(err);
-      setStatusMessage(servicesState, display.message, display.detail, "error");
+      setError(servicesState, display.message);
     });
 
   availabilityBtn.addEventListener("click", async () => {
@@ -425,14 +450,15 @@ function renderBooking() {
     const dateValue = dateInput.value;
 
     if (!serviceId || !dateValue) {
-      setStatusMessage(availabilityState, "Completa servicio y fecha.");
+      setError(availabilityState, "Completa servicio y fecha.");
       return;
     }
 
     selectedSlot = null;
     updateSummary();
     slotsList.innerHTML = "";
-    setStatusMessage(availabilityState, "Buscando disponibilidad...");
+    setLoading(availabilityState, "Buscando...");
+    setButtonLoading(availabilityBtn, "Buscando...");
 
     try {
       const data = await apiRequest(
@@ -441,7 +467,8 @@ function renderBooking() {
       );
       const slots = data.slots || [];
       if (slots.length === 0) {
-        setStatusMessage(availabilityState, "No hay slots para ese dia.");
+        clearButtonLoading(availabilityBtn);
+        setStatusMessage(availabilityState, "No hay horarios para ese dia (UTC).");
         return;
       }
 
@@ -463,11 +490,13 @@ function renderBooking() {
 
       const futureSlots = normalizedSlots.filter((slot) => slot.startAt.getTime() >= now);
       if (futureSlots.length === 0) {
-        setStatusMessage(availabilityState, "No hay slots disponibles o ya pasaron (UTC).");
+        clearButtonLoading(availabilityBtn);
+        setStatusMessage(availabilityState, "No hay horarios para ese dia (UTC).");
         return;
       }
 
       availabilityState.textContent = "Selecciona un slot.";
+      clearButtonLoading(availabilityBtn);
       slotsList.innerHTML = futureSlots
         .map(
           (slot) => `
@@ -494,27 +523,30 @@ function renderBooking() {
       });
     } catch (err) {
       const display = formatErrorDisplay(err);
-      setStatusMessage(availabilityState, display.message, display.detail, "error");
+      clearButtonLoading(availabilityBtn);
+      setError(availabilityState, display.message);
     }
   });
 
   bookingBtn.addEventListener("click", async () => {
     if (!selectedSlot) {
-      setStatusMessage(bookingState, "Selecciona un slot primero.");
+      setError(bookingState, "Selecciona un slot primero.");
       return;
     }
     const currentIdentity = getIdentity();
     if (!currentIdentity) {
-      setStatusMessage(bookingState, "Necesitas crear tu identidad para reservar.");
+      setError(bookingState, "Necesitas crear tu identidad para reservar.");
       return;
     }
 
-    setStatusMessage(bookingState, "Creando reserva...");
+    setLoading(bookingState, "Confirmando...");
+    setButtonLoading(bookingBtn, "Confirmando...");
 
     try {
       const startTime = normalizeSlotTime(selectedSlot.start);
       if (!isValidSlotTime(startTime)) {
-        setStatusMessage(bookingState, "Horario invalido.", "Selecciona otro slot.", "error");
+        clearButtonLoading(bookingBtn, !selectedSlot);
+        setError(bookingState, "Horario invalido.");
         return;
       }
       const startAt = `${selectedSlot.date}T${startTime}:00.000Z`;
@@ -529,15 +561,12 @@ function renderBooking() {
           start_at: startAt,
         }),
       });
-      setStatusMessage(
-        bookingState,
-        `Reserva creada. ID: ${data.booking?.id ?? "(sin id)"}`,
-        "",
-        "ok"
-      );
+      clearButtonLoading(bookingBtn, false);
+      setSuccess(bookingState, "Reserva creada.");
     } catch (err) {
       const display = formatErrorDisplay(err);
-      setStatusMessage(bookingState, display.message, display.detail, "error");
+      clearButtonLoading(bookingBtn, !selectedSlot);
+      setError(bookingState, display.message);
     }
   });
 }
@@ -657,7 +686,9 @@ function renderAdmin() {
 
   serviceForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    setStatusMessage(serviceState, "Creando servicio...");
+    const submitButton = serviceForm.querySelector("button[type='submit']");
+    setLoading(serviceState, "Creando...");
+    setButtonLoading(submitButton, "Creando...");
 
     const formData = new FormData(serviceForm);
     const payload = {
@@ -669,22 +700,21 @@ function renderAdmin() {
 
     try {
       const data = await adminRequest("admin create service", "/admin/services", payload);
-      setStatusMessage(
-        serviceState,
-        `Servicio creado. ID: ${data.service?.id ?? "(sin id)"}`,
-        "",
-        "ok"
-      );
+      clearButtonLoading(submitButton, false);
+      setSuccess(serviceState, "Servicio creado.");
       serviceForm.reset();
     } catch (err) {
       const display = formatErrorDisplay(err);
-      setStatusMessage(serviceState, display.message, display.detail, "error");
+      clearButtonLoading(submitButton, false);
+      setError(serviceState, display.message);
     }
   });
 
   availabilityForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    setStatusMessage(availabilityState, "Guardando disponibilidad...");
+    const submitButton = availabilityForm.querySelector("button[type='submit']");
+    setLoading(availabilityState, "Guardando...");
+    setButtonLoading(submitButton, "Guardando...");
 
     const formData = new FormData(availabilityForm);
     const payload = {
@@ -697,22 +727,19 @@ function renderAdmin() {
 
     try {
       const data = await adminRequest("admin create availability", "/admin/availability", payload);
-      setStatusMessage(
-        availabilityState,
-        `Slot creado. ID: ${data.slot?.id ?? "(sin id)"}`,
-        "",
-        "ok"
-      );
+      clearButtonLoading(submitButton, false);
+      setSuccess(availabilityState, "Slot creado.");
       availabilityForm.reset();
     } catch (err) {
       const display = formatErrorDisplay(err);
-      setStatusMessage(availabilityState, display.message, display.detail, "error");
+      clearButtonLoading(submitButton, false);
+      setError(availabilityState, display.message);
     }
   });
 
   bookingsForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    setStatusMessage(bookingsState, "Buscando reservas...");
+    setLoading(bookingsState, "Buscando...");
     bookingsList.innerHTML = "";
 
     const formData = new FormData(bookingsForm);
@@ -727,7 +754,7 @@ function renderAdmin() {
       const data = await adminRequest("admin fetch bookings", `/admin/bookings?${query.toString()}`);
       const bookings = data.bookings || [];
       if (bookings.length === 0) {
-        setStatusMessage(bookingsState, "Sin reservas para ese dia.");
+        setStatusMessage(bookingsState, "No hay reservas para ese dia.");
         return;
       }
       bookingsState.textContent = "";
@@ -761,13 +788,13 @@ function renderAdmin() {
           } catch (err) {
             button.disabled = false;
             const display = formatErrorDisplay(err);
-            setStatusMessage(bookingsState, display.message, display.detail, "error");
+            setError(bookingsState, display.message);
           }
         });
       });
     } catch (err) {
       const display = formatErrorDisplay(err);
-      setStatusMessage(bookingsState, display.message, display.detail, "error");
+      setError(bookingsState, display.message);
     }
   });
 }
@@ -816,38 +843,33 @@ async function adminRequest(action, path, payload, options = {}) {
 
 function formatErrorDisplay(err) {
   if (err && err.type === "network") {
-    return { message: "No se pudo conectar.", detail: "network/cors" };
+    return { message: "No se pudo conectar con el sistema.", detail: "" };
   }
 
   if (err && err.type === "missing-token") {
-    return { message: "Token requerido.", detail: "X-ADMIN-TOKEN" };
+    return { message: "Token requerido.", detail: "" };
   }
 
   if (err && err.type === "http") {
     const details = err.data?.error?.details || {};
     let message = "Solicitud fallida.";
     if (err.status === 401) {
-      message = "Token requerido.";
+      message = "Token invalido.";
     } else if (err.status === 403) {
       message = "Token invalido.";
     } else if (err.status === 409) {
       message = "Ese horario ya fue tomado.";
     } else if (err.status >= 400 && err.status < 500) {
-      if (details.start_at === "past") {
+      if (Object.prototype.hasOwnProperty.call(details, "start_at")) {
         message = "Horario en el pasado. Elegi otro dia.";
-      } else if (details.start_at === false) {
-        message = "Horario invalido.";
       } else {
-        message = "Datos invalidos.";
+        message = "Datos invalidos. Revisa e intenta de nuevo.";
       }
     } else if (err.status >= 500) {
-      message = "Error interno.";
+      message = "Error interno. Intenta de nuevo.";
     }
 
-    const detail = err.data?.error
-      ? `${err.data.error.code}: ${err.data.error.message}`
-      : "";
-    return { message, detail };
+    return { message, detail: "" };
   }
 
   return { message: "Error inesperado.", detail: "" };
@@ -863,6 +885,39 @@ function setStatusMessage(element, message, detail = "", tone = "") {
   const safeMessage = escapeHtml(message);
   const safeDetail = detail ? `<small>${escapeHtml(detail)}</small>` : "";
   element.innerHTML = `${safeMessage}${safeDetail}`;
+}
+
+function setLoading(element, message) {
+  setStatusMessage(element, message || "Cargando...");
+}
+
+function setError(element, message) {
+  setStatusMessage(element, message, "", "error");
+}
+
+function setSuccess(element, message) {
+  setStatusMessage(element, message, "", "ok");
+}
+
+function setButtonLoading(button, label) {
+  if (!button) {
+    return;
+  }
+  if (!button.dataset.originalText) {
+    button.dataset.originalText = button.textContent;
+  }
+  button.textContent = label;
+  button.disabled = true;
+}
+
+function clearButtonLoading(button, keepDisabled = false) {
+  if (!button) {
+    return;
+  }
+  if (button.dataset.originalText) {
+    button.textContent = button.dataset.originalText;
+  }
+  button.disabled = keepDisabled;
 }
 
 function escapeHtml(value) {
