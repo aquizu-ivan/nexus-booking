@@ -11,7 +11,7 @@ model users {
   id         Int        @id @default(autoincrement())
   name       String
   contact    String?
-  clientSeed String     @unique
+  clientSeed String?    @unique
   created_at DateTime
   bookings   bookings[]
 }

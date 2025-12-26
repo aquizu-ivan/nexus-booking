@@ -27,19 +27,43 @@ if (databaseUrl.startsWith("file:")) {
 }
 
 const repoRoot = path.resolve(__dirname, "..", "..", "..");
-const prismaArgs = ["-C", "apps/api", "exec", "--", "prisma", ...args];
 
-if (!prismaArgs.includes("--schema")) {
-  prismaArgs.push("--schema", schemaFile);
+function runPrisma(prismaCommandArgs) {
+  const prismaArgs = ["-C", "apps/api", "exec", "--", "prisma", ...prismaCommandArgs];
+  if (!prismaArgs.includes("--schema")) {
+    prismaArgs.push("--schema", schemaFile);
+  }
+  return new Promise((resolve) => {
+    const child = spawn("pnpm", prismaArgs, {
+      cwd: repoRoot,
+      env: process.env,
+      stdio: "inherit",
+      shell: true,
+    });
+    child.on("exit", (code) => {
+      resolve(code === null ? 1 : code);
+    });
+  });
 }
 
-const child = spawn("pnpm", prismaArgs, {
-  cwd: repoRoot,
-  env: process.env,
-  stdio: "inherit",
-  shell: true,
-});
+async function run() {
+  if (args[0] === "deploy") {
+    if (databaseUrl.startsWith("file:")) {
+      const generateCode = await runPrisma(["generate"]);
+      process.exit(generateCode);
+    }
+    const migrateCode = await runPrisma(["migrate", "deploy"]);
+    if (migrateCode !== 0) {
+      process.exit(migrateCode);
+    }
+    const generateCode = await runPrisma(["generate"]);
+    process.exit(generateCode);
+  }
 
-child.on("exit", (code) => {
-  process.exit(code === null ? 1 : code);
+  const code = await runPrisma(args);
+  process.exit(code);
+}
+
+run().catch(() => {
+  process.exit(1);
 });

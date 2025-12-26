@@ -4,8 +4,9 @@
   "scripts": {
     "prestart": "node prisma/prisma-select.cjs generate",
     "prisma:generate": "node prisma/prisma-select.cjs generate",
+    "prisma:migrate:deploy": "node prisma/prisma-select.cjs migrate deploy",
     "db:push": "node prisma/prisma-select.cjs db push",
-    "deploy:prepare": "node prisma/prisma-select.cjs generate && node prisma/prisma-select.cjs migrate deploy",
+    "deploy:prepare": "node prisma/prisma-select.cjs deploy",
     "db:migrate:deploy": "node prisma/prisma-select.cjs migrate deploy",
     "db:migrate:status": "node prisma/prisma-select.cjs migrate status",
     "start": "node src/server.js",
