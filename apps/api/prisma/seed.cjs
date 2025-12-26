@@ -10,6 +10,7 @@ async function main() {
     data: {
       name: "Usuario Demo",
       contact: "demo@example.com",
+      clientSeed: "seed-demo-001",
       created_at: createdAt,
     },
   });

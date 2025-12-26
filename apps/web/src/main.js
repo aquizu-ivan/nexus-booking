@@ -4,6 +4,8 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
 const app = document.getElementById("app");
 
 let adminToken = "";
+const IDENTITY_STORAGE_KEY = "NEXUS_IDENTITY_V1";
+let identity = loadIdentity();
 
 const uiState = {
   action: "-",
@@ -17,6 +19,147 @@ const routes = {
   "#/booking": renderBooking,
   "#/admin": renderAdmin,
 };
+
+function loadIdentity() {
+  if (typeof window === "undefined" || !window.localStorage) {
+    return null;
+  }
+  try {
+    const raw = window.localStorage.getItem(IDENTITY_STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") {
+      return null;
+    }
+    const id = parsed.id;
+    const alias = typeof parsed.alias === "string" ? parsed.alias : "";
+    const clientSeed = typeof parsed.clientSeed === "string" ? parsed.clientSeed : "";
+    if (!id || !alias || !clientSeed) {
+      return null;
+    }
+    return { id, alias, clientSeed };
+  } catch (err) {
+    return null;
+  }
+}
+
+function saveIdentity(nextIdentity) {
+  identity = nextIdentity;
+  if (typeof window === "undefined" || !window.localStorage) {
+    return;
+  }
+  try {
+    window.localStorage.setItem(IDENTITY_STORAGE_KEY, JSON.stringify(nextIdentity));
+  } catch (err) {
+    // ignore storage errors
+  }
+}
+
+function clearIdentity() {
+  identity = null;
+  if (typeof window === "undefined" || !window.localStorage) {
+    return;
+  }
+  try {
+    window.localStorage.removeItem(IDENTITY_STORAGE_KEY);
+  } catch (err) {
+    // ignore storage errors
+  }
+}
+
+function getIdentity() {
+  return identity;
+}
+
+function generateClientSeed() {
+  if (window.crypto && typeof window.crypto.randomUUID === "function") {
+    return window.crypto.randomUUID();
+  }
+  return `seed-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+}
+
+function formatIdentityId(value) {
+  const raw = String(value);
+  if (raw.length <= 4) {
+    return raw;
+  }
+  return raw.slice(-4);
+}
+
+function renderIdentityPanel() {
+  const current = getIdentity();
+  if (current) {
+    return `
+      <section class="panel">
+        <h2>Identidad activa</h2>
+        <p class="muted">Alias: ${escapeHtml(current.alias)}</p>
+        <div class="meta">
+          <span>ID ${escapeHtml(formatIdentityId(current.id))}</span>
+          <button id="identity-reset" type="button">Cambiar identidad</button>
+        </div>
+      </section>
+    `;
+  }
+  return `
+    <section class="panel">
+      <h2>Tu identidad</h2>
+      <p class="muted">Crea un alias para reservar.</p>
+      <label>
+        Alias
+        <input id="identity-alias" type="text" maxlength="80" />
+      </label>
+      <button id="identity-create" type="button">Crear identidad</button>
+      <div id="identity-state" class="status"></div>
+    </section>
+  `;
+}
+
+function wireIdentityPanel() {
+  const createButton = document.getElementById("identity-create");
+  const aliasInput = document.getElementById("identity-alias");
+  const stateEl = document.getElementById("identity-state");
+  if (createButton && aliasInput && stateEl) {
+    createButton.addEventListener("click", async () => {
+      const alias = aliasInput.value.trim();
+      if (!alias) {
+        setStatusMessage(stateEl, "Ingresa un alias.");
+        return;
+      }
+      setStatusMessage(stateEl, "Creando identidad...");
+      const clientSeed = generateClientSeed();
+      try {
+        const data = await apiRequest("create identity", "/users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ alias, clientSeed }),
+        });
+        if (!data.user || !data.user.id) {
+          setStatusMessage(stateEl, "No se pudo crear la identidad.", "", "error");
+          return;
+        }
+        saveIdentity({
+          id: data.user.id,
+          alias: data.user.alias || alias,
+          clientSeed,
+        });
+        renderRoute();
+      } catch (err) {
+        const display = formatErrorDisplay(err);
+        setStatusMessage(stateEl, display.message, display.detail, "error");
+      }
+    });
+  }
+
+  const resetButton = document.getElementById("identity-reset");
+  if (resetButton) {
+    resetButton.addEventListener("click", () => {
+      clearIdentity();
+      renderRoute();
+    });
+  }
+}
 
 function setActiveLink() {
   document.querySelectorAll("nav a").forEach((link) => {
@@ -100,7 +243,9 @@ function renderLayout(content) {
 }
 
 function renderHome() {
+  const identityPanel = renderIdentityPanel();
   renderLayout(`
+    ${identityPanel}
     <section class="panel">
       <h2>Estado</h2>
       <p class="muted">Consulta el estado vivo del backend.</p>
@@ -118,6 +263,7 @@ function renderHome() {
 
   const button = document.getElementById("health-check");
   const output = document.getElementById("health-output");
+  wireIdentityPanel();
   button.addEventListener("click", async () => {
     output.textContent = "Cargando...";
     try {
@@ -173,6 +319,7 @@ function renderServices() {
 
 function renderBooking() {
   renderLayout(`
+    ${renderIdentityPanel()}
     <section class="panel">
       <h2>Reservar</h2>
       <p class="muted">Selecciona servicio y fecha, luego confirma tu reserva.</p>
@@ -204,10 +351,6 @@ function renderBooking() {
       <div class="step">
         <h3>Confirmar reserva</h3>
         <div id="booking-summary" class="summary">Sin slot seleccionado.</div>
-        <label>
-          user_id
-          <input id="user-id-input" type="number" min="1" required />
-        </label>
         <button id="booking-btn" type="button" disabled>Confirmar</button>
         <div id="booking-state" class="status"></div>
       </div>
@@ -221,7 +364,6 @@ function renderBooking() {
   const availabilityState = document.getElementById("availability-state");
   const slotsList = document.getElementById("slots-list");
   const summary = document.getElementById("booking-summary");
-  const userIdInput = document.getElementById("user-id-input");
   const bookingBtn = document.getElementById("booking-btn");
   const bookingState = document.getElementById("booking-state");
 
@@ -234,13 +376,17 @@ function renderBooking() {
       bookingBtn.disabled = true;
       return;
     }
-    summary.textContent = `Servicio ${selectedSlot.serviceName} | ${selectedSlot.date} ${selectedSlot.start}`;
-    bookingBtn.disabled = !(Number(userIdInput.value) > 0);
+    const currentIdentity = getIdentity();
+    if (!currentIdentity) {
+      summary.textContent = "Necesitas crear tu identidad para reservar.";
+      bookingBtn.disabled = true;
+      return;
+    }
+    summary.textContent = `Servicio ${selectedSlot.serviceName} | ${selectedSlot.date} ${selectedSlot.start} | ${currentIdentity.alias}`;
+    bookingBtn.disabled = false;
   }
 
-  userIdInput.addEventListener("input", () => {
-    updateSummary();
-  });
+  wireIdentityPanel();
 
   apiRequest("fetch services", "/services")
     .then((data) => {
@@ -323,9 +469,9 @@ function renderBooking() {
       setStatusMessage(bookingState, "Selecciona un slot primero.");
       return;
     }
-    const userId = Number(userIdInput.value);
-    if (!userId) {
-      setStatusMessage(bookingState, "Ingresa user_id valido.");
+    const currentIdentity = getIdentity();
+    if (!currentIdentity) {
+      setStatusMessage(bookingState, "Necesitas crear tu identidad para reservar.");
       return;
     }
 
@@ -339,7 +485,7 @@ function renderBooking() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          user_id: userId,
+          user_id: currentIdentity.id,
           service_id: selectedSlot.serviceId,
           start_at: startAt,
         }),

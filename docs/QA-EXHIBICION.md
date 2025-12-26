@@ -72,6 +72,17 @@ Checklist TICKET-00:
 - Requiere API local en `http://localhost:4000`.
 - PROD: VITE_API_BASE_URL apunta a Railway en el build de Pages.
 
+## DEV minimo (sin Postgres)
+- DB local por defecto: si `DATABASE_URL` no existe, usa SQLite en `apps/api/prisma/dev.db`.
+- Preparar DB (solo la primera vez): `set DATABASE_URL=file:./dev.db` + `pnpm -C apps/api exec -- prisma db push`
+- API: `pnpm -C apps/api run start`
+- Web: `pnpm -C apps/web run dev`
+- QA identidad (A/B/C/D): abrir `http://localhost:5173/#/booking`
+- A: onboarding visible, crear alias, guardar `NEXUS_IDENTITY_V1` en localStorage.
+- B: recargar, se ve identidad activa.
+- C: reservar sin campo user_id, payload incluye user_id automaticamente.
+- D: reset identidad, localStorage vacio y vuelve onboarding.
+
 ## Verificacion UX usuario final - TICKET-10
 - Paso 1: Home carga, estado muestra API_BASE y ultima accion.
 - Paso 2: Reservar -> elegir servicio + fecha -> buscar disponibilidad.
@@ -95,7 +106,7 @@ Checklist TICKET-00:
 ## Fix prod services/admin - TICKET-18
 - Prod /services: `curl https://nexus-booking-nexus-booking.up.railway.app/services` (200, puede ser `[]`).
 - Prod /admin/services sin token: `curl -i https://nexus-booking-nexus-booking.up.railway.app/admin/services` (401/403, no 404).
-- Prod /admin/services con token: `curl -i -H "X-ADMIN-TOKEN: <token>" https://nexus-booking-nexus-booking.up.railway.app/admin/services` (200).
+- Prod /admin/services con token: `curl -i -H "X-ADMIN-TOKEN: ADMIN_TOKEN_AQUI" https://nexus-booking-nexus-booking.up.railway.app/admin/services` (200).
 - Error responses incluyen `request_id` en `error.details` para correlacionar logs.
 - Pages: Services carga sin 500 en `https://aquizu-ivan.github.io/nexus-booking/`.
 
