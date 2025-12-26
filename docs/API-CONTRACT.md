@@ -29,6 +29,30 @@ Respuesta 200:
 }
 ```
 
+### POST /users
+Request:
+
+```json
+{
+  "alias": "Usuario Demo",
+  "clientSeed": "seed-demo-001"
+}
+```
+
+Respuesta 201 (o 200 si ya existe por clientSeed):
+
+```json
+{
+  "ok": true,
+  "user": {
+    "id": 1,
+    "alias": "Usuario Demo"
+  }
+}
+```
+
+Nota: el front ya no pide `user_id`. Se obtiene desde la identidad activa.
+
 ### POST /services
 Request:
 
@@ -111,7 +135,7 @@ Errores esperados:
 ## Admin (X-ADMIN-TOKEN requerido)
 
 Header requerido:
-- X-ADMIN-TOKEN: <token>
+- X-ADMIN-TOKEN: ADMIN_TOKEN_AQUI
 
 ### POST /admin/services
 Igual a POST /services, pero requiere header admin.

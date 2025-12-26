@@ -3,6 +3,10 @@ const express = require("express");
 const { PrismaClient } = require("@prisma/client");
 const { AppError, buildErrorPayload, getErrorEntry } = require("./errors");
 
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = "file:./dev.db";
+}
+
 const app = express();
 const prisma = new PrismaClient();
 const startedAt = new Date().toISOString();
@@ -201,6 +205,53 @@ app.get("/services", async (req, res, next) => {
 });
 
 app.post("/services", handleCreateService);
+
+app.post("/users", async (req, res, next) => {
+  const alias = typeof req.body?.alias === "string" ? req.body.alias.trim() : "";
+  const clientSeed = typeof req.body?.clientSeed === "string" ? req.body.clientSeed.trim() : "";
+
+  if (!alias || !clientSeed) {
+    return next(
+      new AppError("VALIDATION_ERROR", {
+        alias: Boolean(alias),
+        clientSeed: Boolean(clientSeed),
+      })
+    );
+  }
+
+  try {
+    const existing = await prisma.users.findUnique({
+      where: { clientSeed },
+    });
+    if (existing) {
+      return res.status(200).json({ ok: true, user: { id: existing.id, alias: existing.name } });
+    }
+
+    const user = await prisma.users.create({
+      data: {
+        name: alias,
+        clientSeed,
+        created_at: new Date(),
+      },
+    });
+
+    return res.status(201).json({ ok: true, user: { id: user.id, alias: user.name } });
+  } catch (err) {
+    if (err && err.code === "P2002") {
+      try {
+        const existing = await prisma.users.findUnique({
+          where: { clientSeed },
+        });
+        if (existing) {
+          return res.status(200).json({ ok: true, user: { id: existing.id, alias: existing.name } });
+        }
+      } catch (innerErr) {
+        return next(innerErr);
+      }
+    }
+    return next(err);
+  }
+});
 
 app.get("/availability", async (req, res, next) => {
   const serviceId = parsePositiveInt(req.query?.serviceId);
