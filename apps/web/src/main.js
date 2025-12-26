@@ -4,6 +4,8 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
 const app = document.getElementById("app");
 
 let adminToken = "";
+let lastCreatedServiceId = null;
+let lastCreatedServiceName = "";
 const IDENTITY_STORAGE_KEY = "NEXUS_IDENTITY_V1";
 let identity = loadIdentity();
 
@@ -339,6 +341,7 @@ function renderServices() {
             <article>
               <h3>${escapeHtml(service.name)}</h3>
               <p>${escapeHtml(service.description)}</p>
+              <p class="muted small">ID: #${service.id}</p>
               <div class="meta">
                 <span>Duracion: ${service.duration_minutes} min</span>
                 <span>${service.active ? "Activo" : "Inactivo"}</span>
@@ -849,8 +852,10 @@ function renderAdmin() {
       <h2>Disponibilidad</h2>
       <form id="admin-availability-form">
         <label>
-          service_id
-          <input name="service_id" type="number" min="1" required />
+          Servicio
+          <select id="admin-service-select" name="service_id" required>
+            <option value="">Selecciona un servicio</option>
+          </select>
         </label>
         <label>
           date (UTC)
@@ -898,6 +903,7 @@ function renderAdmin() {
   const serviceState = document.getElementById("admin-service-state");
   const availabilityForm = document.getElementById("admin-availability-form");
   const availabilityState = document.getElementById("admin-availability-state");
+  const availabilitySelect = document.getElementById("admin-service-select");
   const bookingsForm = document.getElementById("admin-bookings-form");
   const bookingsState = document.getElementById("admin-bookings-state");
   const bookingsList = document.getElementById("admin-bookings-list");
@@ -935,9 +941,20 @@ function renderAdmin() {
 
     try {
       const data = await adminRequest("admin create service", "/admin/services", payload);
+      const createdId = data.service?.id;
+      const createdName = data.service?.name || payload.name || "Servicio";
+      if (createdId) {
+        lastCreatedServiceId = createdId;
+        lastCreatedServiceName = createdName;
+      }
       clearButtonLoading(submitButton, false);
-      setSuccess(serviceState, "Servicio creado.");
+      if (createdId) {
+        setSuccess(serviceState, `Servicio creado: ${createdName} (ID: ${createdId})`);
+      } else {
+        setSuccess(serviceState, "Servicio creado.");
+      }
       serviceForm.reset();
+      await loadAdminServices();
     } catch (err) {
       const display = formatErrorDisplay(err);
       clearButtonLoading(submitButton, false);
@@ -945,18 +962,83 @@ function renderAdmin() {
     }
   });
 
+  async function loadAdminServices() {
+    if (!availabilitySelect || !availabilityState || !availabilityForm) {
+      return;
+    }
+    availabilitySelect.innerHTML = `<option value="">Selecciona un servicio</option>`;
+    availabilitySelect.disabled = true;
+    setLoading(availabilityState, "Cargando servicios...");
+
+    try {
+      const data = await apiRequest("fetch services", "/services");
+      const services = data.services || [];
+      if (services.length === 0) {
+        setStatusMessage(availabilityState, "Primero crea un servicio.");
+        availabilitySelect.disabled = true;
+        availabilityForm.querySelector("button[type='submit']").disabled = true;
+        return;
+      }
+
+      services.forEach((service) => {
+        const option = document.createElement("option");
+        option.value = String(service.id);
+        option.textContent = `#${service.id} — ${service.name} (${service.duration_minutes} min)`;
+        availabilitySelect.append(option);
+      });
+
+      const preferredId = lastCreatedServiceId ? String(lastCreatedServiceId) : "";
+      if (preferredId && services.some((service) => String(service.id) === preferredId)) {
+        availabilitySelect.value = preferredId;
+      } else {
+        availabilitySelect.value = String(services[0].id);
+      }
+
+      availabilitySelect.disabled = false;
+      availabilityForm.querySelector("button[type='submit']").disabled = false;
+      setStatusMessage(
+        availabilityState,
+        lastCreatedServiceName
+          ? `Servicio sugerido: ${lastCreatedServiceName}.`
+          : "Selecciona un servicio y horario."
+      );
+    } catch (err) {
+      const display = formatErrorDisplay(err);
+      setError(availabilityState, display.message);
+      availabilitySelect.disabled = true;
+      availabilityForm.querySelector("button[type='submit']").disabled = true;
+    }
+  }
+
   availabilityForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const submitButton = availabilityForm.querySelector("button[type='submit']");
+    const serviceId = Number(availabilitySelect?.value);
+    const formData = new FormData(availabilityForm);
+    const dateValue = formData.get("date")?.toString();
+    const startTime = formData.get("start_time")?.toString();
+    const endTime = formData.get("end_time")?.toString();
+
+    if (!serviceId) {
+      setError(availabilityState, "Elegi un servicio.");
+      return;
+    }
+    if (!dateValue || !startTime || !endTime) {
+      setError(availabilityState, "Completa fecha y horario.");
+      return;
+    }
+
     setLoading(availabilityState, "Guardando...");
     setButtonLoading(submitButton, "Guardando...");
+    if (availabilitySelect) {
+      availabilitySelect.disabled = true;
+    }
 
-    const formData = new FormData(availabilityForm);
     const payload = {
-      service_id: Number(formData.get("service_id")),
-      date: formData.get("date")?.toString(),
-      start_time: formData.get("start_time")?.toString(),
-      end_time: formData.get("end_time")?.toString(),
+      service_id: serviceId,
+      date: dateValue,
+      start_time: startTime,
+      end_time: endTime,
       active: formData.get("active") === "on",
     };
 
@@ -965,10 +1047,19 @@ function renderAdmin() {
       clearButtonLoading(submitButton, false);
       setSuccess(availabilityState, "Slot creado.");
       availabilityForm.reset();
+      if (availabilitySelect) {
+        availabilitySelect.disabled = false;
+        if (lastCreatedServiceId) {
+          availabilitySelect.value = String(lastCreatedServiceId);
+        }
+      }
     } catch (err) {
       const display = formatErrorDisplay(err);
       clearButtonLoading(submitButton, false);
       setError(availabilityState, display.message);
+      if (availabilitySelect) {
+        availabilitySelect.disabled = false;
+      }
     }
   });
 
@@ -1032,6 +1123,8 @@ function renderAdmin() {
       setError(bookingsState, display.message);
     }
   });
+
+  loadAdminServices();
 }
 
 async function apiRequest(action, path, options = {}) {
