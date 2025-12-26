@@ -23,7 +23,9 @@ app.use((req, res, next) => {
   res.setHeader("X-Request-Id", requestId);
   next();
 });
-const corsAllowList = (process.env.CORS_ORIGIN || "http://localhost:5173")
+const corsAllowList = (
+  process.env.CORS_ORIGIN || "http://localhost:5173,https://aquizu-ivan.github.io"
+)
   .split(",")
   .map((item) => item.trim())
   .filter(Boolean);
@@ -34,8 +36,9 @@ app.use((req, res, next) => {
 
   if (isAllowedOrigin) {
     res.setHeader("Access-Control-Allow-Origin", originHeader);
+    res.setHeader("Vary", "Origin");
   }
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-ADMIN-TOKEN");
 
   if (req.method === "OPTIONS") {
