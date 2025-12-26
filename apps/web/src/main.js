@@ -392,6 +392,14 @@ function renderBooking() {
         <div id="booking-state" class="status"></div>
       </div>
     </section>
+
+    <section class="panel">
+      <h2>Mis reservas</h2>
+      <p class="muted">Tus reservas recientes en UTC.</p>
+      <div id="user-bookings-state" class="status"></div>
+      <div id="user-bookings-list" class="grid"></div>
+      <button id="user-bookings-refresh" type="button">Actualizar</button>
+    </section>
   `);
 
   const servicesState = document.getElementById("booking-services-state");
@@ -403,6 +411,9 @@ function renderBooking() {
   const summary = document.getElementById("booking-summary");
   const bookingBtn = document.getElementById("booking-btn");
   const bookingState = document.getElementById("booking-state");
+  const userBookingsState = document.getElementById("user-bookings-state");
+  const userBookingsList = document.getElementById("user-bookings-list");
+  const userBookingsRefresh = document.getElementById("user-bookings-refresh");
 
   let services = [];
   let selectedSlot = null;
@@ -563,12 +574,236 @@ function renderBooking() {
       });
       clearButtonLoading(bookingBtn, false);
       setSuccess(bookingState, "Reserva creada.");
+      await loadUserBookings();
     } catch (err) {
       const display = formatErrorDisplay(err);
       clearButtonLoading(bookingBtn, !selectedSlot);
       setError(bookingState, display.message);
     }
   });
+
+  function formatUtcTimestamp(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return "-";
+    }
+    return `${date.toISOString().slice(0, 16).replace("T", " ")} UTC`;
+  }
+
+  function canCancelStatus(status) {
+    return status === "pending" || status === "confirmed";
+  }
+
+  function renderUserBookings(bookings) {
+    if (!userBookingsList) {
+      return;
+    }
+    userBookingsList.innerHTML = bookings
+      .map((booking) => {
+        const statusLabel = booking.status || "pending";
+        const allowCancel = canCancelStatus(statusLabel);
+        return `
+          <article>
+            <h3>#${booking.id}</h3>
+            <p>Servicio: ${booking.service_id}</p>
+            <p>Fecha: ${formatUtcTimestamp(booking.start_at)}</p>
+            <p>Estado: ${statusLabel}</p>
+            ${
+              allowCancel
+                ? `<button class="cancel-user-booking" type="button" data-id="${booking.id}">Cancelar</button>`
+                : `<span class="muted">No cancelable</span>`
+            }
+          </article>
+        `;
+      })
+      .join("");
+  }
+
+  async function discoverBookings(identityValue) {
+    const attempts = [
+      { path: `/bookings?user_id=${identityValue.id}` },
+      { path: `/users/${identityValue.id}/bookings` },
+    ];
+
+    for (const attempt of attempts) {
+      updateStatus("fetch my bookings", `loading ${attempt.path}`);
+      let response;
+      try {
+        response = await fetch(`${API_BASE}${attempt.path}`);
+      } catch (err) {
+        updateStatus("fetch my bookings", "error network");
+        return { type: "network" };
+      }
+
+      if (response.status === 404 || response.status === 405) {
+        continue;
+      }
+
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        updateStatus(
+          "fetch my bookings",
+          `error ${response.status}`,
+          data?.error?.code || ""
+        );
+        return { type: "http", status: response.status, data };
+      }
+
+      updateStatus("fetch my bookings", "ok");
+      return { type: "ok", data };
+    }
+
+    return { type: "not-supported" };
+  }
+
+  function getBookingsMessage(result) {
+    if (result.type === "network") {
+      return "No se pudo conectar.";
+    }
+    if (result.type === "not-supported") {
+      return "Tu backend todavia no expone 'Mis reservas'.";
+    }
+    if (result.type === "http") {
+      if (result.status >= 500) {
+        return "Error interno. Proba de nuevo.";
+      }
+      const display = formatErrorDisplay(result);
+      return display.message;
+    }
+    return "Error inesperado.";
+  }
+
+  async function loadUserBookings() {
+    if (!userBookingsState || !userBookingsList || !userBookingsRefresh) {
+      return;
+    }
+    const currentIdentity = getIdentity();
+    if (!currentIdentity) {
+      userBookingsList.innerHTML = "";
+      userBookingsRefresh.disabled = true;
+      setStatusMessage(userBookingsState, "Crea tu identidad para ver tus reservas.");
+      return;
+    }
+
+    userBookingsRefresh.disabled = true;
+    setLoading(userBookingsState, "Cargando reservas...");
+
+    const result = await discoverBookings(currentIdentity);
+    if (result.type !== "ok") {
+      userBookingsList.innerHTML = "";
+      setError(userBookingsState, getBookingsMessage(result));
+      userBookingsRefresh.disabled = false;
+      return;
+    }
+
+    const bookings = result.data.bookings || result.data || [];
+    if (!Array.isArray(bookings) || bookings.length === 0) {
+      userBookingsList.innerHTML = "";
+      setStatusMessage(userBookingsState, "No tenes reservas todavia.");
+      userBookingsRefresh.disabled = false;
+      return;
+    }
+
+    userBookingsState.textContent = "";
+    renderUserBookings(bookings);
+    userBookingsRefresh.disabled = false;
+
+    userBookingsList.querySelectorAll(".cancel-user-booking").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const bookingId = Number(button.dataset.id);
+        if (!bookingId) {
+          return;
+        }
+        const confirmed = window.confirm("Confirmas cancelar esta reserva?");
+        if (!confirmed) {
+          return;
+        }
+        setButtonLoading(button, "Cancelando...");
+        setLoading(userBookingsState, "Cancelando...");
+        const cancelResult = await cancelUserBooking(bookingId);
+        if (cancelResult.type === "ok") {
+          setSuccess(userBookingsState, "Reserva cancelada.");
+          await loadUserBookings();
+          return;
+        }
+        clearButtonLoading(button);
+        setError(userBookingsState, getCancelMessage(cancelResult));
+      });
+    });
+  }
+
+  async function cancelUserBooking(bookingId) {
+    const attempts = [
+      { path: `/bookings/${bookingId}/cancel`, body: null },
+      { path: `/bookings/${bookingId}`, body: { status: "cancelled" } },
+    ];
+
+    for (const attempt of attempts) {
+      updateStatus("cancel booking", `loading ${attempt.path}`);
+      let response;
+      try {
+        response = await fetch(`${API_BASE}${attempt.path}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: attempt.body ? JSON.stringify(attempt.body) : undefined,
+        });
+      } catch (err) {
+        updateStatus("cancel booking", "error network");
+        return { type: "network" };
+      }
+
+      if (response.status === 404 || response.status === 405) {
+        continue;
+      }
+
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        updateStatus("cancel booking", `error ${response.status}`, data?.error?.code || "");
+        return { type: "http", status: response.status, data };
+      }
+
+      updateStatus("cancel booking", "ok");
+      return { type: "ok", data };
+    }
+
+    return { type: "not-supported" };
+  }
+
+  function getCancelMessage(result) {
+    if (result.type === "network") {
+      return "No se pudo conectar.";
+    }
+    if (result.type === "not-supported") {
+      return "Tu backend todavia no expone cancelar reservas.";
+    }
+    if (result.type === "http") {
+      if (result.status === 409) {
+        return "Esa reserva ya fue modificada.";
+      }
+      if (result.status === 404) {
+        return "No se encontro la reserva.";
+      }
+      if (result.status === 400) {
+        return "Solicitud invalida.";
+      }
+      if (result.status >= 500) {
+        return "Error interno. Proba de nuevo.";
+      }
+      const display = formatErrorDisplay(result);
+      return display.message;
+    }
+    return "Error inesperado.";
+  }
+
+  if (userBookingsRefresh) {
+    userBookingsRefresh.addEventListener("click", () => {
+      loadUserBookings();
+    });
+  }
+
+  loadUserBookings();
 }
 
 function renderAdmin() {
