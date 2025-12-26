@@ -355,7 +355,7 @@ function renderBooking() {
       </div>
 
       <div class="step">
-        <h3>Paso B: Slots disponibles</h3>
+        <h3>Paso B: Slots disponibles (UTC)</h3>
         <div id="availability-state" class="status">Selecciona servicio y fecha.</div>
         <div id="slots-list" class="slot-grid"></div>
       </div>
@@ -394,7 +394,7 @@ function renderBooking() {
       bookingBtn.disabled = true;
       return;
     }
-    summary.textContent = `Servicio ${selectedSlot.serviceName} | ${selectedSlot.date} ${selectedSlot.start} | ${currentIdentity.alias}`;
+    summary.textContent = `Servicio ${selectedSlot.serviceName} | ${selectedSlot.date} ${selectedSlot.start} UTC | ${currentIdentity.alias}`;
     bookingBtn.disabled = false;
   }
 
@@ -445,12 +445,34 @@ function renderBooking() {
         return;
       }
 
+      const now = Date.now();
+      const normalizedSlots = slots
+        .map((slot) => {
+          const startTime = normalizeSlotTime(slot.start_time);
+          const endTime = normalizeSlotTime(slot.end_time);
+          if (!isValidSlotTime(startTime) || !isValidSlotTime(endTime)) {
+            return null;
+          }
+          const startAt = new Date(`${dateValue}T${startTime}:00.000Z`);
+          if (Number.isNaN(startAt.getTime())) {
+            return null;
+          }
+          return { id: slot.id, startTime, endTime, startAt };
+        })
+        .filter(Boolean);
+
+      const futureSlots = normalizedSlots.filter((slot) => slot.startAt.getTime() >= now);
+      if (futureSlots.length === 0) {
+        setStatusMessage(availabilityState, "No hay slots disponibles o ya pasaron (UTC).");
+        return;
+      }
+
       availabilityState.textContent = "Selecciona un slot.";
-      slotsList.innerHTML = slots
+      slotsList.innerHTML = futureSlots
         .map(
           (slot) => `
-            <button class="slot" type="button" data-start="${slot.start_time}">
-              ${slot.start_time} - ${slot.end_time}
+            <button class="slot" type="button" data-start="${slot.startTime}">
+              ${slot.startTime} UTC - ${slot.endTime} UTC
             </button>
           `
         )
@@ -812,7 +834,7 @@ function formatErrorDisplay(err) {
       message = "Ese horario ya fue tomado.";
     } else if (err.status >= 400 && err.status < 500) {
       if (details.start_at === "past") {
-        message = "Horario en el pasado.";
+        message = "Horario en el pasado. Elegi otro dia.";
       } else if (details.start_at === false) {
         message = "Horario invalido.";
       } else {
