@@ -2,6 +2,7 @@
   "name": "nexus-booking-api",
   "private": true,
   "scripts": {
+    "prestart": "pnpm exec -- prisma generate --schema prisma/schema.prisma",
     "deploy:prepare": "pnpm exec -- prisma generate && pnpm exec -- prisma migrate deploy",
     "db:migrate:deploy": "pnpm -C apps/api exec -- prisma migrate deploy",
     "db:migrate:status": "pnpm -C apps/api exec -- prisma migrate status",
