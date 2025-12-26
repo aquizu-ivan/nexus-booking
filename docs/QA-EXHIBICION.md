@@ -103,6 +103,24 @@ Checklist TICKET-00:
 - Recargar la pagina en #/admin: vuelve a "Sin token".
 - Acciones admin sin token muestran error claro.
 
+## Mis reservas + cancelar - TICKET-27
+- Requiere API local y DB preparada: `pnpm -C apps/api run db:push`.
+- Crear usuario:
+  - `curl -X POST http://localhost:4000/users -H "Content-Type: application/json" -d "{\"alias\":\"Nadia\",\"clientSeed\":\"seed-qa-001\"}"`
+- Crear servicio + availability (admin):
+  - `curl -X POST http://localhost:4000/admin/services -H "X-ADMIN-TOKEN: ADMIN_TOKEN_AQUI" -H "Content-Type: application/json" -d "{\"name\":\"Servicio QA\",\"description\":\"Reserva QA\",\"duration_minutes\":30,\"active\":true}"`
+  - `curl -X POST http://localhost:4000/admin/availability -H "X-ADMIN-TOKEN: ADMIN_TOKEN_AQUI" -H "Content-Type: application/json" -d "{\"service_id\":1,\"date\":\"2026-01-05\",\"start_time\":\"11:00\",\"end_time\":\"11:30\",\"active\":true}"`
+- Crear reserva:
+  - `curl -X POST http://localhost:4000/bookings -H "Content-Type: application/json" -d "{\"user_id\":1,\"service_id\":1,\"start_at\":\"2026-01-05T11:00:00.000Z\"}"`
+- Listar reservas por user_id:
+  - `curl "http://localhost:4000/bookings?user_id=1"`
+- Cancelar reserva:
+  - `curl -X PATCH http://localhost:4000/bookings/1/cancel`
+- Reintentar cancelar (409):
+  - `curl -i -X PATCH http://localhost:4000/bookings/1/cancel`
+- Cancelar reserva pasada (409):
+  - Si existe una reserva con `start_at` anterior a `now`, el endpoint debe responder 409 CONFLICT con `details.reason=past`.
+
 ## Fix prod services/admin - TICKET-18
 - Prod /services: `curl https://nexus-booking-nexus-booking.up.railway.app/services` (200, puede ser `[]`).
 - Prod /admin/services sin token: `curl -i https://nexus-booking-nexus-booking.up.railway.app/admin/services` (401/403, no 404).

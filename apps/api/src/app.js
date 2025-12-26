@@ -256,6 +256,24 @@ app.post("/users", async (req, res, next) => {
   }
 });
 
+app.get("/bookings", async (req, res, next) => {
+  const userId = parsePositiveInt(req.query?.user_id);
+
+  if (!userId) {
+    return next(new AppError("VALIDATION_ERROR", { user_id: Boolean(userId) }));
+  }
+
+  try {
+    const bookings = await prisma.bookings.findMany({
+      where: { user_id: userId },
+      orderBy: { start_at: "desc" },
+    });
+    res.status(200).json({ ok: true, bookings });
+  } catch (err) {
+    next(err);
+  }
+});
+
 app.get("/availability", async (req, res, next) => {
   const serviceId = parsePositiveInt(req.query?.serviceId);
   const dateValue = parseDateOnly(req.query?.date);
@@ -416,6 +434,37 @@ app.post("/bookings", async (req, res, next) => {
       return next(new AppError("NOT_FOUND", { target: err.meta && err.meta.field_name }));
     }
     return next(err);
+  }
+});
+
+app.patch("/bookings/:id/cancel", async (req, res, next) => {
+  const bookingId = parsePositiveInt(req.params?.id);
+  if (!bookingId) {
+    return next(new AppError("VALIDATION_ERROR", { id: false }));
+  }
+
+  try {
+    const booking = await prisma.bookings.findUnique({ where: { id: bookingId } });
+    if (!booking) {
+      return next(new AppError("NOT_FOUND", { target: "booking", id: bookingId }));
+    }
+
+    if (booking.status === "cancelled") {
+      return next(new AppError("CONFLICT", { reason: "already cancelled" }));
+    }
+
+    if (booking.start_at.getTime() < Date.now()) {
+      return next(new AppError("CONFLICT", { reason: "past" }));
+    }
+
+    const updated = await prisma.bookings.update({
+      where: { id: bookingId },
+      data: { status: "cancelled" },
+    });
+
+    res.status(200).json({ ok: true, booking: updated });
+  } catch (err) {
+    next(err);
   }
 });
 

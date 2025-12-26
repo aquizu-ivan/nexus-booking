@@ -132,6 +132,49 @@ Errores esperados:
 - NOT_FOUND (404): user_id o service_id inexistente.
 - CONFLICT (409): fuera de disponibilidad, solapado, o colision por slot.
 
+### GET /bookings?user_id=
+Parametros:
+- user_id: integer
+
+Respuesta 200 (ordenado por start_at DESC):
+
+```json
+{
+  "ok": true,
+  "bookings": [
+    {
+      "id": 12,
+      "user_id": 1,
+      "service_id": 1,
+      "start_at": "2025-12-29T11:00:00.000Z",
+      "status": "pending",
+      "created_at": "2025-12-24T15:10:00.000Z"
+    }
+  ]
+}
+```
+
+Errores esperados:
+- VALIDATION_ERROR (400): falta o invalido user_id.
+
+### PATCH /bookings/:id/cancel
+Respuesta 200:
+
+```json
+{
+  "ok": true,
+  "booking": {
+    "id": 12,
+    "status": "cancelled"
+  }
+}
+```
+
+Errores esperados:
+- VALIDATION_ERROR (400): id invalido.
+- NOT_FOUND (404): reserva inexistente.
+- CONFLICT (409): ya cancelada o reserva en el pasado.
+
 ## Admin (X-ADMIN-TOKEN requerido)
 
 Header requerido:
